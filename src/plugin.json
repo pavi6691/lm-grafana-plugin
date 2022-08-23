@@ -1,0 +1,84 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "datasource",
+  "name": "LogicMonitor",
+  "id": "logicmonitor-logic-monitor",
+  "metrics": true,
+  "backend": true,
+  "executable": "gpx_LogicMonitor",
+  "routes": [
+    {
+      "path": "rootPath",
+      "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/device/devices",
+      "headers": [
+        {
+          "name": "Authorization",
+          "content": "Bearer {{ .SecureJsonData.apiKey }}"
+        }
+      ]
+    },
+    {
+      "path": "autocomplete",
+      "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/autocomplete/names",
+      "headers": [
+        {
+          "name": "Authorization",
+          "content": "Bearer {{ .SecureJsonData.apiKey }}"
+        },
+        {
+          "name": "x-version",
+          "content": "3"
+        }
+      ]
+    },
+    {
+      "path": "deviceByGroups",
+      "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/device/groups",
+      "headers": [
+        {
+          "name": "Authorization",
+          "content": "Bearer {{ .SecureJsonData.apiKey }}"
+        }
+      ]
+    },
+    {
+      "path": "dataSoruces",
+      "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/setting/datasources",
+      "headers": [
+        {
+          "name": "Authorization",
+          "content": "Bearer {{ .SecureJsonData.apiKey }}"
+        }
+      ]
+    }
+  ],
+  "info": {
+    "description": "",
+    "author": {
+      "name": "praveen.karadi@logicmonitor.com",
+      "url": "Logicmonitor.com"
+    },
+    "keywords": [],
+    "logos": {
+      "small": "img/small_logo.png",
+      "large": "img/LM_Logo.png"
+    },
+    "links": [
+      {
+        "name": "Website",
+        "url": "https://github.com/grafana/grafana-starter-datasource-backend"
+      },
+      {
+        "name": "License",
+        "url": "https://github.com/grafana/grafana-starter-datasource-backend/blob/master/LICENSE"
+      }
+    ],
+    "screenshots": [],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=7.0.0",
+    "plugins": []
+  }
+}
