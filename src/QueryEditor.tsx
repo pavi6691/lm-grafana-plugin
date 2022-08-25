@@ -19,7 +19,7 @@ export class QueryEditor extends PureComponent<Props> {
   };
 
   async doAutoCompleteRequest(urll: String, idAsPrifix: boolean) {
-    const result = await new RestClient().call('' + this.props.datasource.url + urll);
+    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
     const hostArray = [];
     if(result) {
       for (var i = 0; i < result.data.items.length; i++) {
@@ -55,7 +55,7 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   async doDeviceRequest(urll: String) {
-    const result = await new RestClient().call('' + this.props.datasource.url + urll);
+    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
     const hostArray = [];
     if(result) {
       for (var i = 0; i < result.data.data.total; i++) {
@@ -69,7 +69,7 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   async doDataSourceRequest(urll: String) {
-    const result = await new RestClient().call('' + this.props.datasource.url + urll);
+    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
     const hostArray = [];
     if(result) {
       for (var i = 0; i < result.data.data.total; i++) {
@@ -83,7 +83,7 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   async doInstanceRequest(urll: String) {
-    const result = await new RestClient().call('' + this.props.datasource.url + urll);
+    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
     const hostArray = [];
     if(result) {
       for (var i = 0; i < result.data.data.total; i++) {
@@ -97,7 +97,7 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   async doDataPointRequest(urll: String) {
-    const result = await new RestClient().call('' + this.props.datasource.url + urll);
+    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
     const hostArray = [];
     if(result) {
       for (var i = 0; i < result.data.data.dataPoints.length; i++) {
@@ -134,9 +134,8 @@ export class QueryEditor extends PureComponent<Props> {
 
     const optionStartsWithValue = (option: SelectableValue<string>, value: string) =>
             option.label?.toString().startsWith(value) || false;
-    
     const loadGroups = () => {
-      const autocomplete = '/autocomplete?queryToken=display&filterFlag=ImmediateChild&size=10&_=' + new Date().getTime() + '&type='
+      const autocomplete = '/autocomplete/names?queryToken=display&filterFlag=ImmediateChild&size=10&_=' + new Date().getTime() + '&type='
       setGroupLoading(true);
       this.callPromise(autocomplete + 'hostChain&query=' + this.props.query.groupSelected + '&parentsFilters=[]', false).then((rs) => {
         setGroupOptions(rs);
@@ -147,7 +146,7 @@ export class QueryEditor extends PureComponent<Props> {
     
     const loadHosts = () => {
       setDeviceLoading(true)
-      const autocomplete = '/autocomplete?queryToken=display&needIdPrefix=true&size=10&_=' + new Date().getTime() + '&type='
+      const autocomplete = '/autocomplete/names?queryToken=display&needIdPrefix=true&size=10&_=' + new Date().getTime() + '&type='
       const parentsFilter = '[{"filter":"' + this.props.query.groupSelected.label + '","exclude":false,"token":"fullname","matchFilterAsGlob":true}]';
       this.callPromise(autocomplete + 'hostChain&query=' + this.props.query.hostSelected + '&parentsFilters=' + encodeURI(parentsFilter), true).then((rs) => {
         setHostOptions(rs);
@@ -159,7 +158,7 @@ export class QueryEditor extends PureComponent<Props> {
     // Enable when device data source id is not required to fetch raw data
     // const loadDatasources = () => { 
     //   setDsLoading(true)
-    //   const autocomplete = '/autocomplete?queryToken=fullname&filterFlag=DataSourceWithInstance&needIdPrefix=true&size=10&_=' + new Date().getTime() + '&type='
+    //   const autocomplete = '/autocomplete/names?queryToken=fullname&filterFlag=DataSourceWithInstance&needIdPrefix=true&size=10&_=' + new Date().getTime() + '&type='
     //   const parentsFilter = '[{"filter":"' + this.props.query.groupSelected.label + '","exclude":false,"token":"fullname","matchFilterAsGlob":true},' 
     //   + '{"filter":"'+ this.props.query.hostSelected.label + '","exclude":false,"token":"display","matchFilterAsGlob":true}'
     //   + ']';
@@ -172,7 +171,7 @@ export class QueryEditor extends PureComponent<Props> {
     
     const loadInstances = () => {
       setInstanceLoading(true)
-      const autocomplete = '/autocomplete?queryToken=shortname&needIdPrefix=true&size=10&_=' + new Date().getTime() + '&type='
+      const autocomplete = '/autocomplete/names?queryToken=shortname&needIdPrefix=true&size=10&_=' + new Date().getTime() + '&type='
       const parentsFilter = '[{"filter":"' + this.props.query.groupSelected.label + '","exclude":false,"token":"fullname","matchFilterAsGlob":true},' 
       + '{"filter":"'+ this.props.query.hostSelected.label + '","exclude":false,"token":"display","matchFilterAsGlob":true},'
       + '{"filter":"'+ this.props.query.dataSourceSelected.label + '","exclude":false,"token":"display","matchFilterAsGlob":false}'
@@ -188,7 +187,7 @@ export class QueryEditor extends PureComponent<Props> {
       useEffect(() => {
         const loadHostAsyncOptions = () => {
           setDeviceLoading(true)
-          const rootPath = '/rootPath?format=json&fields=id,displayName&size=-1';
+          const rootPath = '/device/devices?format=json&fields=id,displayName&size=-1';
           return new Promise<Array<SelectableValue<string>>>((resolve) => {
             setTimeout(() => {
               resolve(this.doDeviceRequest(rootPath));
@@ -206,7 +205,7 @@ export class QueryEditor extends PureComponent<Props> {
         if(dataSourceSelected) {
           const loadInstancesAsyncOptions = () => {
             setInstanceLoading(true)
-            const routePath = '/rootPath/' + this.props.query.hostSelected.value + '/devicedatasources/' + this.props.query.hdsSelected + '/instances?format=json&fields=id,name&size=-1';
+            const routePath = '/device/devices/' + this.props.query.hostSelected.value + '/devicedatasources/' + this.props.query.hdsSelected + '/instances?format=json&fields=id,name&size=-1';
             return new Promise<Array<SelectableValue<string>>>((resolve) => {
               setTimeout(() => {
                 resolve(this.doInstanceRequest(routePath));
@@ -256,7 +255,7 @@ export class QueryEditor extends PureComponent<Props> {
       if(hostSelected) {
         const loadDataSourceAsyncOptions = () => {
           setDsLoading(true)
-          const routePath = '/rootPath/'  + this.props.query.hostSelected.value + '/devicedatasources?format=json&fields=id,dataSourceDisplayName,dataSourceId&size=-1';
+          const routePath = '/device/devices/'  + this.props.query.hostSelected.value + '/devicedatasources?format=json&fields=id,dataSourceDisplayName,dataSourceId&size=-1';
           return new Promise<Array<SelectableValue<string>>>((resolve) => {
             setTimeout(() => {
               resolve(this.doDataSourceRequest(routePath));
@@ -276,7 +275,7 @@ export class QueryEditor extends PureComponent<Props> {
       if(dataSourceSelected) {
         const loadDpIdsAsyncOptions = () => {
           setDPLoading(true)
-          const routePath = '/dataSoruces/' + this.props.query.dataSourceSelected.ds + '?format=json&fields=dataPoints';
+          const routePath = '/setting/datasources/' + this.props.query.dataSourceSelected.ds + '?format=json&fields=dataPoints';
           return new Promise<Array<SelectableValue<string>>>((resolve) => {
             setTimeout(() => {
               resolve(this.doDataPointRequest(routePath));

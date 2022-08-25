@@ -10,15 +10,17 @@ import {
 } from '@grafana/data';
 import { MyQuery, MyDataSourceOptions } from './types';
 // import { Observable, merge } from 'rxjs';
-import { getBackendSrv } from '@grafana/runtime';
+// import { getBackendSrv } from '@grafana/runtime';
 import { RestClient } from 'RestClient';
 
 export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   url?: string;
+  id: number;
   storedJsonData: any;
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
     super(instanceSettings);
     this.url = instanceSettings.url;
+    this.id = instanceSettings.id;
     this.storedJsonData = instanceSettings.jsonData;
   }
 
@@ -136,12 +138,12 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
         throw new Error("Please select instance")
       }
       if(query.dataPointSelected !== undefined && query.dataPointSelected !== null && query.dataPointSelected.length > 0) {
-        const routePath = this.url + '/rootPath/' + query.hostSelected.value + 
+        const routePath =  '/device/devices/' + query.hostSelected.value + 
            '/devicedatasources/' + query.hdsSelected + 
            '/instances/' +  query.instanceSelected.value + 
            '/data' +
            '?start=' + options.range.from.unix() + '&end=' + options.range.to.unix()
-        return new RestClient().call(routePath);
+        return new RestClient().fetch(routePath,this.id || 0,this.url || '', this.storedJsonData.isLMV1Enabled);
       } else {
         throw new Error("Please select datapoints");
       }
@@ -150,30 +152,32 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   }
 
   async testDatasource() {
-    const companyName = this.storedJsonData.path;
-   const companyRoute = this.url + '/rootPath/'+'?size=1';
+  //  const companyName = this.storedJsonData.path;
+   const companyRoute =  '/device/devices/'+'?size=1';
 
    var statusVal = "";
    var messageVal = "";
 
-    await getBackendSrv().datasourceRequest({
-      url : companyRoute,
-      method : 'GET' 
-    }).then((response)=>{
-      statusVal = 'Authentication Success!'
-      messageVal = 'Authentication Success!'
-    }).catch((error)=>{
-      statusVal = 'error'
-      if(error.status === 400){
-        messageVal = 'Invalid Token for Comapny'+' '+companyName 
-      }
-      else if(error.status === 502){
-        messageVal = 'Invalid Comapny'+' '+companyName
-      }else{
-        messageVal = 'Unknow Error occured'
-      }
+   return new RestClient().fetch(companyRoute,this.id || 0,this.url || '', this.storedJsonData.isLMV1Enabled);
+
+    // await getBackendSrv().datasourceRequest({
+    //   url : companyRoute,
+    //   method : 'GET' 
+    // }).then((response)=>{
+    //   statusVal = 'Authentication Success!'
+    //   messageVal = 'Authentication Success!'
+    // }).catch((error)=>{
+    //   statusVal = 'error'
+    //   if(error.status === 400){
+    //     messageVal = 'Invalid Token for Comapny'+' '+companyName 
+    //   }
+    //   else if(error.status === 502){
+    //     messageVal = 'Invalid Comapny'+' '+companyName
+    //   }else{
+    //     messageVal = 'Unknow Error occured'
+    //   }
       
-    })
+    // })
 
     return {
       status: statusVal,

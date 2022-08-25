@@ -2,8 +2,15 @@ package plugin
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	b64 "encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
@@ -128,6 +135,57 @@ func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHeal
 		Status:  status,
 		Message: message,
 	}, nil
+}
+
+type JSONData struct {
+	Path      string `json:"path"`
+	AccessId  string `json:"accessId"`
+	AccessKey string `json:"accessKey"`
+}
+
+func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
+	response := backend.DataResponse{}
+	var jsond JSONData
+	response.Error = json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &jsond)
+	if response.Error != nil {
+		log.DefaultLogger.Info("response.Error", response.Error)
+		return response.Error
+	}
+	return sender.Send(&backend.CallResourceResponse{
+		Status: http.StatusOK,
+		Body:   []byte(call(jsond.AccessId, jsond.AccessKey, req.Path, req.URL, jsond.Path)),
+	})
+}
+
+func call(accessId, accessKey, resourcePath, fullPath, host string) string {
+	var url string = "https://" + host + ".logicmonitor.com/santaba/rest/"
+	url = url + fullPath
+	client := &http.Client{}
+	log.DefaultLogger.Info(" URL => " + url)
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Add("Authorization", getLMv1(accessId, accessKey, "/"+resourcePath))
+	if resourcePath == "autocomplete/names" {
+		req.Header.Add("x-version", "3")
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.DefaultLogger.Info(" error executing => "+url, err)
+	}
+	bodyText, err := ioutil.ReadAll(resp.Body)
+	return string(bodyText)
+}
+
+func getLMv1(accessId, accessKey, resourcePath string) string {
+	epoch := time.Now().UnixMilli()
+	getEpoch := fmt.Sprintf("%s%d", "GET", epoch)
+	data := getEpoch + resourcePath
+	h := hmac.New(sha256.New, []byte(accessKey))
+	log.DefaultLogger.Info(" Data => " + data)
+	h.Write([]byte(data))
+	sha := hex.EncodeToString(h.Sum(nil))
+	auth := "LMv1 " + accessId + ":" + b64.URLEncoding.EncodeToString([]byte(sha)) + fmt.Sprintf("%s%d", ":", epoch)
+	log.DefaultLogger.Info(" Auth => " + auth)
+	return auth
 }
 
 // SubscribeStream is called when a client wants to connect to a stream. This callback
