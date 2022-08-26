@@ -18,12 +18,13 @@ export const defaultQuery: Partial<MyQuery> = {
 export interface MyDataSourceOptions extends DataSourceJsonData {
   path?: string;
   accessId?: string;
-  accessKey?: string;
   isLMV1Enabled?: boolean;
+  isBearerEnabled?: boolean;
 }
 /**
  * Value that is used in the backend, but never sent over HTTP to the frontend
  */
 export interface MySecureJsonData {
   bearer_token?: string;
+  accessKey?: string;
 }

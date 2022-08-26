@@ -143,7 +143,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
            '/instances/' +  query.instanceSelected.value + 
            '/data' +
            '?start=' + options.range.from.unix() + '&end=' + options.range.to.unix()
-        return new RestClient().fetch(routePath,this.id || 0,this.url || '', this.storedJsonData.isLMV1Enabled);
+        return new RestClient().fetch(routePath,this.id || 0,this.url || '', this.storedJsonData.isBearerEnabled);
       } else {
         throw new Error("Please select datapoints");
       }
@@ -152,33 +152,14 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   }
 
   async testDatasource() {
-  //  const companyName = this.storedJsonData.path;
-   const companyRoute =  '/device/devices/'+'?size=1';
-
-   var statusVal = "";
-   var messageVal = "";
-
-   return new RestClient().fetch(companyRoute,this.id || 0,this.url || '', this.storedJsonData.isLMV1Enabled);
-
-    // await getBackendSrv().datasourceRequest({
-    //   url : companyRoute,
-    //   method : 'GET' 
-    // }).then((response)=>{
-    //   statusVal = 'Authentication Success!'
-    //   messageVal = 'Authentication Success!'
-    // }).catch((error)=>{
-    //   statusVal = 'error'
-    //   if(error.status === 400){
-    //     messageVal = 'Invalid Token for Comapny'+' '+companyName 
-    //   }
-    //   else if(error.status === 502){
-    //     messageVal = 'Invalid Comapny'+' '+companyName
-    //   }else{
-    //     messageVal = 'Unknow Error occured'
-    //   }
-      
-    // })
-
+    const companyRoute =  '/device/devices/'+'?size=1';
+    var statusVal = "Authentication Success!";
+    var messageVal = "Authentication Success!";
+    const response = await new RestClient().httpGet(companyRoute,this.id || 0,this.url || '', this.storedJsonData.isBearerEnabled);
+    if(!response.data) {
+      statusVal = "error";
+      messageVal = response.message;
+    }
     return {
       status: statusVal,
       message: messageVal

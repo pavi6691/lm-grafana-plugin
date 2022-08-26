@@ -13,7 +13,7 @@
       "headers": [
         {
           "name": "Authorization",
-          "content": "Bearer {{ .SecureJsonData.apiKey }}"
+          "content": "Bearer {{ .SecureJsonData.bearer_token }}"
         }
       ]
     },
@@ -23,7 +23,7 @@
       "headers": [
         {
           "name": "Authorization",
-          "content": "Bearer {{ .SecureJsonData.apiKey }}"
+          "content": "Bearer {{ .SecureJsonData.bearer_token }}"
         },
         {
           "name": "x-version",
@@ -37,7 +37,7 @@
       "headers": [
         {
           "name": "Authorization",
-          "content": "Bearer {{ .SecureJsonData.apiKey }}"
+          "content": "Bearer {{ .SecureJsonData.bearer_token }}"
         }
       ]
     }

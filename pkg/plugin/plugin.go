@@ -138,29 +138,35 @@ func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHeal
 }
 
 type JSONData struct {
-	Path      string `json:"path"`
-	AccessId  string `json:"accessId"`
-	AccessKey string `json:"accessKey"`
+	Path     string `json:"path"`
+	AccessId string `json:"accessId"`
 }
 
 func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
 	response := backend.DataResponse{}
 	var jsond JSONData
+	AccessKey := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
 	response.Error = json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &jsond)
 	if response.Error != nil {
 		log.DefaultLogger.Info("response.Error", response.Error)
 		return response.Error
 	}
+	resp := call(jsond.AccessId, AccessKey, req.Path, req.URL, jsond.Path)
+	bodyText, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.DefaultLogger.Info(" Error reading responce => ", resp.Body)
+	}
 	return sender.Send(&backend.CallResourceResponse{
-		Status: http.StatusOK,
-		Body:   []byte(call(jsond.AccessId, jsond.AccessKey, req.Path, req.URL, jsond.Path)),
+		Status: resp.StatusCode,
+		Body:   []byte(bodyText),
 	})
 }
 
-func call(accessId, accessKey, resourcePath, fullPath, host string) string {
+func call(accessId, accessKey, resourcePath, fullPath, host string) *http.Response {
 	var url string = "https://" + host + ".logicmonitor.com/santaba/rest/"
 	url = url + fullPath
 	client := &http.Client{}
+	log.DefaultLogger.Info(" accessKey => " + accessKey)
 	log.DefaultLogger.Info(" URL => " + url)
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Add("Authorization", getLMv1(accessId, accessKey, "/"+resourcePath))
@@ -169,10 +175,9 @@ func call(accessId, accessKey, resourcePath, fullPath, host string) string {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.DefaultLogger.Info(" error executing => "+url, err)
+		log.DefaultLogger.Info(" Error executing => "+url, err)
 	}
-	bodyText, err := ioutil.ReadAll(resp.Body)
-	return string(bodyText)
+	return resp
 }
 
 func getLMv1(accessId, accessKey, resourcePath string) string {

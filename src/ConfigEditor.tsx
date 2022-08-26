@@ -1,11 +1,9 @@
 import React, { SyntheticEvent,ChangeEvent, PureComponent } from 'react';
-import { InlineSwitch, LegacyForms } from '@grafana/ui';
+import { InlineLabel, InlineSwitch, LegacyForms } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { MyDataSourceOptions, MySecureJsonData } from './types';
-import { SecretFormField } from '@grafana/ui/components/SecretFormField/SecretFormField';
 
-
-const { FormField } = LegacyForms;
+const { SecretFormField, FormField } = LegacyForms;
 
 interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceOptions, MySecureJsonData> {}
 
@@ -46,21 +44,40 @@ export class ConfigEditor extends PureComponent<Props, State> {
 //AccessKey
   onAccessKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onOptionsChange, options } = this.props;
-    const jsonData = {
-      ...options.jsonData,
+    const secureJsonData = {
+      ...options.secureJsonData,
       accessKey: event.target.value,
     };
-    onOptionsChange({ ...options, jsonData });
+    onOptionsChange({ ...options, secureJsonData });
   }
 
   onResetAPIKey = () => {
     const { onOptionsChange, options } = this.props;
     onOptionsChange({
       ...options,
+      secureJsonFields: {
+        ...options.secureJsonFields,
+        bearer_token: true,
+      },
       secureJsonData: {
         ...options.secureJsonData,
-        bearer_token: "",
-      }
+        bearer_token: '',
+      },
+    });
+  };
+
+  onResetAccessKey = () => {
+    const { onOptionsChange, options } = this.props;
+    onOptionsChange({
+      ...options,
+      secureJsonFields: {
+        ...options.secureJsonFields,
+        accessKey: false,
+      },
+      secureJsonData: {
+        ...options.secureJsonData,
+        accessKey: '',
+      },
     });
   };
 
@@ -73,12 +90,22 @@ export class ConfigEditor extends PureComponent<Props, State> {
     onOptionsChange({ ...options, jsonData });
   };
 
+  onBearerChange = (event: SyntheticEvent<HTMLInputElement>) => {
+    const { onOptionsChange, options } = this.props;
+    const jsonData = {
+      ...options.jsonData,
+      isBearerEnabled: event.currentTarget.checked,
+    };
+    onOptionsChange({ ...options, jsonData });
+  };
+
   render() {
     const { options } = this.props;
-    const { jsonData, secureJsonData } = options;
+    const { jsonData, secureJsonFields } = options;
+    const secureJsonData = (options.secureJsonData || {}) as MySecureJsonData;
     return (
       <div className="gf-form-group">
-        <div className="gf-form">
+        <div className="gf-form" style={{ display: 'flex', marginBottom:50 }}>
           <FormField
             label="Company Name"
             labelWidth={8}
@@ -88,24 +115,42 @@ export class ConfigEditor extends PureComponent<Props, State> {
             placeholder="Comapny Name"
           />
         </div>
+        <div className="box">
+          <div style={{ display: 'flex', marginBottom:10 }}>
+              <h4>Authentication</h4>
+          </div>
+        </div>
         <div className="gf-form">
-        <div style={{ bottom: '32px' }}>
+        <div style={{ display: 'flex', marginBottom:2 }}>
+          <InlineLabel width={20}>Bearer token</InlineLabel>
           <InlineSwitch
-            width={40}
-            disabled={true}
-            high={10}
-            default={false}
-            checked={jsonData.isLMV1Enabled || false}
-            label="Enable LMv1"
+            defaultChecked={jsonData.isBearerEnabled}
+            checked={jsonData.isBearerEnabled}
+            showLabel={true}
+            onChange={this.onBearerChange}
+          />
+        </div>
+        </div>
+        <div className="gf-form">
+        <div style={{ display: 'flex', marginBottom:40 }}>
+          <InlineLabel width={20}>LMv1 token</InlineLabel>
+          <InlineSwitch
+            defaultChecked={jsonData.isLMV1Enabled}
+            checked={jsonData.isLMV1Enabled}
             showLabel={true}
             onChange={this.onLMV1Change}
           />
         </div>
         </div>
-        {jsonData.isLMV1Enabled === false && <div className="gf-form-inline">
+        {jsonData.isBearerEnabled === true && <div className="box">
+          <div style={{ display: 'flex', marginBottom:10 }}>
+              <h4>Bearer Token</h4>
+          </div>
+        </div> }
+        {jsonData.isBearerEnabled === true && <div className="gf-form-inline" style={{ display: 'flex', marginBottom:40 }}>
           <div className="gf-form">
             <SecretFormField
-              isConfigured={(secureJsonData) as boolean}
+              isConfigured={(secureJsonFields && secureJsonFields.bearer_token) as boolean}
               value={secureJsonData?.bearer_token || ''}
               label="Bearer Token"
               placeholder="LM breaer token"
@@ -114,6 +159,11 @@ export class ConfigEditor extends PureComponent<Props, State> {
               onReset={this.onResetAPIKey}
               onChange={this.onAPIKeyChange}
             />
+          </div>
+        </div> }
+        {jsonData.isLMV1Enabled === true && <div className="box">
+          <div style={{ display: 'flex', marginBottom:10 }}>
+              <h4>LMv1 Token</h4>
           </div>
         </div> }
         {jsonData.isLMV1Enabled === true && <div className="gf-form-inline"> 
@@ -130,13 +180,15 @@ export class ConfigEditor extends PureComponent<Props, State> {
         </div> }
         {jsonData.isLMV1Enabled === true && <div className="gf-form-inline"> 
           <div className="gf-form">
-            <FormField
-              value={jsonData.accessKey || ''}
+            <SecretFormField
+              value={secureJsonData.accessKey || ''}
               label="Access Key"
               placeholder="Enter Access Key"
               labelWidth={8}
               inputWidth={20}
-              onChange={this.onAccessKeyChange}
+              onChange={this.onAccessKeyChange} 
+              onReset={this.onResetAccessKey}
+              isConfigured={(secureJsonFields && secureJsonFields.accessKey) as boolean}      
             />
           </div>
         </div> }

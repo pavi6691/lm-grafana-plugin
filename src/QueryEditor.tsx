@@ -19,9 +19,9 @@ export class QueryEditor extends PureComponent<Props> {
   };
 
   async doAutoCompleteRequest(urll: String, idAsPrifix: boolean) {
-    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
+    const result = await new RestClient().httpGet(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isBearerEnabled);
     const hostArray = [];
-    if(result) {
+    if(result.data) {
       for (var i = 0; i < result.data.items.length; i++) {
         if(idAsPrifix) {
           var lm_host = '' + result.data.items[i];
@@ -43,6 +43,8 @@ export class QueryEditor extends PureComponent<Props> {
           hostArray.push({label: result.data.items[i] });
         }
       }
+    } else {
+      return result;
     }
     return hostArray;
   }
@@ -55,9 +57,9 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   async doDeviceRequest(urll: String) {
-    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
+    const result = await new RestClient().httpGet(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isBearerEnabled);
     const hostArray = [];
-    if(result) {
+    if(result.data) {
       for (var i = 0; i < result.data.data.total; i++) {
         const lm_host = result.data.data.items[i];
         if (lm_host !== undefined) {
@@ -69,9 +71,9 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   async doDataSourceRequest(urll: String) {
-    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
+    const result = await new RestClient().httpGet(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isBearerEnabled);
     const hostArray = [];
-    if(result) {
+    if(result.data) {
       for (var i = 0; i < result.data.data.total; i++) {
         const lm_host = result.data.data.items[i];
         if (lm_host !== undefined) {
@@ -83,9 +85,9 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   async doInstanceRequest(urll: String) {
-    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
+    const result = await new RestClient().httpGet(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isBearerEnabled);
     const hostArray = [];
-    if(result) {
+    if(result.data) {
       for (var i = 0; i < result.data.data.total; i++) {
         const lm_host = result.data.data.items[i];
         if (lm_host !== undefined) {
@@ -97,9 +99,9 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   async doDataPointRequest(urll: String) {
-    const result = await new RestClient().fetch(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isLMV1Enabled);
+    const result = await new RestClient().httpGet(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isBearerEnabled);
     const hostArray = [];
-    if(result) {
+    if(result.data) {
       for (var i = 0; i < result.data.data.dataPoints.length; i++) {
         const lm_host = result.data.data.dataPoints[i];
         if (lm_host !== undefined) {
