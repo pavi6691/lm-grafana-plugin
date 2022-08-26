@@ -257,7 +257,7 @@ export class QueryEditor extends PureComponent<Props> {
       if(hostSelected) {
         const loadDataSourceAsyncOptions = () => {
           setDsLoading(true)
-          const routePath = '/device/devices/'  + this.props.query.hostSelected.value + '/devicedatasources?format=json&fields=id,dataSourceDisplayName,dataSourceId&size=-1';
+          const routePath = '/device/devices/'  + this.props.query.hostSelected.value + '/devicedatasources?format=json&fields=id,dataSourceDisplayName,dataSourceId,instanceNumber&size=-1&filter=instanceNumber>:1';
           return new Promise<Array<SelectableValue<string>>>((resolve) => {
             setTimeout(() => {
               resolve(this.doDataSourceRequest(routePath));
