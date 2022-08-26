@@ -154,7 +154,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
               value={secureJsonData?.bearer_token || ''}
               label="Bearer Token"
               placeholder="LM breaer token"
-              labelWidth={8}
+              labelWidth={10}
               inputWidth={20}
               onReset={this.onResetAPIKey}
               onChange={this.onAPIKeyChange}
@@ -172,7 +172,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
               value={jsonData.accessId || ''}
               label="Access Id"
               placeholder="Enter Access Id"
-              labelWidth={8}
+              labelWidth={10}
               inputWidth={20}
               onChange={this.onAccessIdChange}
             />
@@ -184,7 +184,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
               value={secureJsonData.accessKey || ''}
               label="Access Key"
               placeholder="Enter Access Key"
-              labelWidth={8}
+              labelWidth={10}
               inputWidth={20}
               onChange={this.onAccessKeyChange} 
               onReset={this.onResetAccessKey}
