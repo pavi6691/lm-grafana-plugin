@@ -57,7 +57,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
       ...options,
       secureJsonFields: {
         ...options.secureJsonFields,
-        bearer_token: true,
+        bearer_token: false,
       },
       secureJsonData: {
         ...options.secureJsonData,
@@ -181,14 +181,14 @@ export class ConfigEditor extends PureComponent<Props, State> {
         {jsonData.isLMV1Enabled === true && <div className="gf-form-inline"> 
           <div className="gf-form">
             <SecretFormField
+              isConfigured={(secureJsonFields && secureJsonFields.accessKey) as boolean} 
               value={secureJsonData.accessKey || ''}
               label="Access Key"
               placeholder="Enter Access Key"
               labelWidth={10}
               inputWidth={20}
-              onChange={this.onAccessKeyChange} 
-              onReset={this.onResetAccessKey}
-              isConfigured={(secureJsonFields && secureJsonFields.accessKey) as boolean}      
+              onReset={this.onResetAccessKey}    
+              onChange={this.onAccessKeyChange}  
             />
           </div>
         </div> }

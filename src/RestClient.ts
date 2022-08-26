@@ -50,22 +50,20 @@ export class RestClient {
             method: 'GET',
           })
         return await lastValueFrom(observable).catch(e => {
-            if(e.data.error) {
+            if(e.status === 502 || e.status === 500) { // 502 from proxy 500 from backend) {
+                e = e.data.message + " : Host not reachable / invalid company name configured";
+            } else if(e.status === 400 ) {
+                e = 'Invalid Token for Comapny or ' + e.data.message; 
+            } else if(e.data.error) {
                 e = e.data.error;
             } else if(e.data.errmsg) {
                 e = e.data.errmsg;
             } else if(e.data.message) {
-                if(e.status === 502) {
-                    e = e.data.message + " : Host not reachable / invalid company name configured";
-                } else if(e.status === 400) {
-                    e = 'Invalid Token for Comapny or ' + e.data.message; 
-                } else {
-                    e = e.data.message;
-                }
-            } else if(e.statusText) {
-                e = e.statusText;
+                e = e.data.message
             } else if(e.data.errorMessage) {
                 e = e.data.errorMessage;
+            } else if(e.statusText) {
+                e = e.statusText;
             } else {
                 e = "Unknow Error occured : " + e;
             }
