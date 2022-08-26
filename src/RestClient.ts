@@ -65,7 +65,7 @@ export class RestClient {
             } else if(e.statusText) {
                 e = e.statusText;
             } else {
-                e = "Unknow Error occured : " + e;
+                e = 'HTTP Error : ' + e.status;
             }
             alert(e);
             return {
