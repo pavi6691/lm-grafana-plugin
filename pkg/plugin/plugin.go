@@ -166,8 +166,6 @@ func call(accessId, accessKey, resourcePath, fullPath, host string) *http.Respon
 	var url string = "https://" + host + ".logicmonitor.com/santaba/rest/"
 	url = url + fullPath
 	client := &http.Client{}
-	log.DefaultLogger.Info(" accessKey => " + accessKey)
-	log.DefaultLogger.Info(" URL => " + url)
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Add("Authorization", getLMv1(accessId, accessKey, "/"+resourcePath))
 	if resourcePath == "autocomplete/names" {
@@ -185,11 +183,9 @@ func getLMv1(accessId, accessKey, resourcePath string) string {
 	getEpoch := fmt.Sprintf("%s%d", "GET", epoch)
 	data := getEpoch + resourcePath
 	h := hmac.New(sha256.New, []byte(accessKey))
-	log.DefaultLogger.Info(" Data => " + data)
 	h.Write([]byte(data))
 	sha := hex.EncodeToString(h.Sum(nil))
 	auth := "LMv1 " + accessId + ":" + b64.URLEncoding.EncodeToString([]byte(sha)) + fmt.Sprintf("%s%d", ":", epoch)
-	log.DefaultLogger.Info(" Auth => " + auth)
 	return auth
 }
 

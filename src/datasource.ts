@@ -152,6 +152,19 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   }
 
   async testDatasource() {
+    if(!this.storedJsonData.path) {
+      return {
+        status: "error",
+        message: "Company name not entered"
+      }
+    }
+    if((!this.storedJsonData.isBearerEnabled && !this.storedJsonData.isLMV1Enabled)
+     || (this.storedJsonData.isBearerEnabled === false && this.storedJsonData.isLMV1Enabled === false)) {
+      return {
+        status: "error",
+        message: "Enable one of authentication methods and try again"
+      }
+    }
     const companyRoute =  '/device/devices/'+'?size=1';
     var statusVal = "Authentication Success!";
     var messageVal = "Authentication Success!";

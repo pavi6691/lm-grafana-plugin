@@ -108,7 +108,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
         <div className="gf-form" style={{ display: 'flex', marginBottom:50 }}>
           <FormField
             label="Company Name"
-            labelWidth={8}
+            labelWidth={10}
             inputWidth={20}
             onChange={this.onPathChange}
             value={jsonData.path || ''}
@@ -116,7 +116,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
           />
         </div>
         <div className="box">
-          <div style={{ display: 'flex', marginBottom:10 }}>
+          <div style={{ display: 'flex', marginBottom:2 }}>
               <h4>Authentication</h4>
           </div>
         </div>
@@ -143,7 +143,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
         </div>
         </div>
         {jsonData.isBearerEnabled === true && <div className="box">
-          <div style={{ display: 'flex', marginBottom:10 }}>
+          <div style={{ display: 'flex', marginBottom:2 }}>
               <h4>Bearer Token</h4>
           </div>
         </div> }
@@ -162,7 +162,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
           </div>
         </div> }
         {jsonData.isLMV1Enabled === true && <div className="box">
-          <div style={{ display: 'flex', marginBottom:10 }}>
+          <div style={{ display: 'flex', marginBottom:2 }}>
               <h4>LMv1 Token</h4>
           </div>
         </div> }
