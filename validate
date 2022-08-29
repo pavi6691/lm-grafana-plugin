@@ -1,4 +1,4 @@
-if [[ $1 == "rm" ]];
+if [[ $1 == "clean" ]];
 then
  rm -rf logicmonitor-logic-monitor
  rm -rf logicmonitor-logic-monitor-1.0.0.zip
@@ -12,4 +12,5 @@ mv dist/ logicmonitor-logic-monitor
 zip logicmonitor-logic-monitor-1.0.0.zip logicmonitor-logic-monitor -r
 /Users/praveenkaradi/go/bin/plugincheck logicmonitor-logic-monitor-1.0.0.zip
 /Users/praveenkaradi/go/bin/plugincheck2 lm-grafana-plugin/logicmonitor-logic-monitor-1.0.0.zip
+rm -rf logicmonitor-logic-monitor
 fi
