@@ -1,5 +1,5 @@
 import React, { SyntheticEvent, PureComponent, useState, useEffect } from 'react';
-import { Select, InlineLabel, MultiSelect } from '@grafana/ui';
+import { Select, InlineLabel, MultiSelect, InlineSwitch } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from './datasource';
 import { MyDataSourceOptions, MyQuery } from './types';
@@ -54,6 +54,20 @@ export class QueryEditor extends PureComponent<Props> {
         resolve(this.doAutoCompleteRequest(urll,idAsPrifix));
       }, 1500);
     });
+  }
+
+  async doGroupRequest(urll: String) {
+    const result = await new RestClient().httpGet(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isBearerEnabled);
+    const hostArray = [];
+    if(result.data) {
+      for (var i = 0; i < result.data.data.total; i++) {
+        const group = result.data.data.items[i];
+        if (group !== undefined && group.fullPath !== "") {
+          hostArray.push({ value: group.id, label: group.fullPath });
+        }
+      }
+    }
+    return hostArray;
   }
 
   async doDeviceRequest(urll: String) {
@@ -112,6 +126,13 @@ export class QueryEditor extends PureComponent<Props> {
     return hostArray;
   }
 
+  getExtraFilterforGroups(type: any): string {
+      return '{"AND":[{"OR":[{"name":"groupType","value":"' + type + '","op":":"},' + 
+      '{"name":"id","value":1,"op":":"}]},{"name":"userPermission","value":"write","op":":"},' + 
+      '{"OR":[{"name":"fullPath","value":"'+ this.props.query.groupSelected.label +'","op":"~"},{"name":"name","value":"' + 
+        this.props.query.groupSelected.label +'","op":"~"}]}]}&fields=id,fullPath,name&sort=fullPath&size=10&_=' + new Date().getTime()
+  }
+
   hostSelectAsync = () => {
     
     const [groupSelected, setGroupSelected] = useState<any>();
@@ -136,21 +157,40 @@ export class QueryEditor extends PureComponent<Props> {
 
     const optionStartsWithValue = (option: SelectableValue<string>, value: string) =>
             option.label?.toString().startsWith(value) || false;
-    const loadGroups = () => {
-      const autocomplete = '/autocomplete/names?queryToken=display&filterFlag=ImmediateChild&size=10&_=' + new Date().getTime() + '&type='
-      setGroupLoading(true);
-      this.callPromise(autocomplete + 'hostChain&query=' + this.props.query.groupSelected + '&parentsFilters=[]', false).then((rs) => {
-        setGroupOptions(rs);
-      }).finally(() => {  
-        setGroupLoading(false);
-      });
-    }
+
     
+    const loadGroups = () => {
+      if(this.props.query.deviceGroup === true && this.props.query.serviceGroup === true) {
+        setGroupLoading(true);
+        const autocomplete = '/autocomplete/names?queryToken=display&filterFlag=ImmediateChild&size=10&_=' + new Date().getTime() + '&type='
+        this.callPromise(autocomplete + 'hostChain&query=' + this.props.query.groupSelected.label + '&parentsFilters=[]', false).then((rs) => {
+          setGroupOptions(rs);
+        }).finally(() => {  
+          setGroupLoading(false);
+        });
+      } else if(this.props.query.deviceGroup === true || this.props.query.serviceGroup === true) {
+        setGroupLoading(true);
+        const  groupUrl = '/device/groups?extraFilters=' + this.getExtraFilterforGroups(this.props.query.typeSelected);
+         const loadGroupAsyncOptions = () => {
+         return new Promise<Array<SelectableValue<string>>>((resolve) => {
+          setTimeout(() => {
+            resolve(this.doGroupRequest(groupUrl));
+            }, 1500);
+          });
+         };
+        loadGroupAsyncOptions().then((rs) => {
+          setGroupOptions(rs);
+        }).finally(() => {
+          setGroupLoading(false);
+        });
+      }
+    }
+
     const loadHosts = () => {
       setDeviceLoading(true)
       const autocomplete = '/autocomplete/names?queryToken=display&needIdPrefix=true&size=10&_=' + new Date().getTime() + '&type='
       const parentsFilter = '[{"filter":"' + this.props.query.groupSelected.label + '","exclude":false,"token":"fullname","matchFilterAsGlob":true}]';
-      this.callPromise(autocomplete + 'hostChain&query=' + this.props.query.hostSelected + '&parentsFilters=' + encodeURI(parentsFilter), true).then((rs) => {
+      this.callPromise(autocomplete + 'hostChain&query=' + this.props.query.hostSelected.label + '&parentsFilters=' + encodeURI(parentsFilter), true).then((rs) => {
         setHostOptions(rs);
       }).finally(() => {
         setDeviceLoading(false);
@@ -225,18 +265,19 @@ export class QueryEditor extends PureComponent<Props> {
     } else {
       useEffect(() => {
         if(this.props.query.groupSelected) {
-          setGroupSelected("*");
+           setGroupSelected("*");
         } else {
-          this.props.query.groupSelected = "*"
+           this.props.query.groupSelected = {label:"*"}
         }
         loadGroups();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []);
       useEffect(() => {
         if(groupSelected) {
           if(this.props.query.hostSelected) {
             setHostSelected("*")
           } else {
-            this.props.query.hostSelected = "*" 
+            this.props.query.hostSelected = {label:"*"}
           }
           loadHosts();
         }
@@ -294,6 +335,34 @@ export class QueryEditor extends PureComponent<Props> {
     
     return (
       <div id="container">
+        <div className="gf-form">
+        <div style={{ display: 'flex', marginBottom:2 }}>
+          <InlineLabel width={12}>Service</InlineLabel>
+          <InlineSwitch
+            defaultChecked={this.props.query.serviceGroup}
+            checked={this.props.query.serviceGroup}
+            showLabel={true}
+            onChange={(event: SyntheticEvent<HTMLInputElement>) => {
+              this.props.query.serviceGroup = event.currentTarget.checked;
+              this.props.query.typeSelected = "BizService";
+              loadGroups();
+            }}
+          />
+        </div>
+        <div style={{ display: 'flex', marginBottom:5 }}>
+          <InlineLabel width={12}>Device</InlineLabel>
+          <InlineSwitch
+            defaultChecked={this.props.query.deviceGroup}
+            checked={this.props.query.deviceGroup}
+            showLabel={true}
+            onChange={(event: SyntheticEvent<HTMLInputElement>) => {
+              this.props.query.deviceGroup = event.currentTarget.checked;
+              this.props.query.typeSelected = "Normal";
+              loadGroups();
+            }}
+          />
+        </div>
+        </div>
         <div style={{ display: 'flex', marginBottom:5 }}>
           <InlineLabel width={12}>Groups</InlineLabel>
           <Select
@@ -311,7 +380,7 @@ export class QueryEditor extends PureComponent<Props> {
             allowCustomValue={true}
             onInputChange={(v) => {
               if(v.length >  0) {
-                this.props.query.groupSelected = v;
+                this.props.query.groupSelected.label = v;
                 loadGroups();
               }
             }}
@@ -355,7 +424,7 @@ export class QueryEditor extends PureComponent<Props> {
             value={hostSelected}
             onInputChange={(v) => {
               if(isAutocompleteEnabled && v.length >  0) {
-                this.props.query.hostSelected = v;
+                this.props.query.hostSelected.label = v;
                 loadHosts();
               }
             }}

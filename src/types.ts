@@ -1,5 +1,8 @@
 import { DataQuery, DataSourceJsonData } from '@grafana/data';
 export interface MyQuery extends DataQuery {
+  typeSelected: any;
+  serviceGroup: boolean | false;
+  deviceGroup: boolean | false;
   groupSelected: any;
   hostSelected: any;
   hdsSelected: any;
