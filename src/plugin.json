@@ -18,6 +18,16 @@
       ]
     },
     {
+      "path": "device/groups",
+      "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/device/groups/",
+      "headers": [
+        {
+          "name": "Authorization",
+          "content": "Bearer {{ .SecureJsonData.bearer_token }}"
+        }
+      ]
+    },
+    {
       "path": "autocomplete/names",
       "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/autocomplete/names",
       "headers": [
