@@ -56,7 +56,6 @@ func (d *SampleDatasource) Dispose() {
 // The QueryDataResponse contains a map of RefID to the response for each query, and each response
 // contains Frames ([]*Frame).
 func (d *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
-	log.DefaultLogger.Info("QueryData called", "request", req)
 
 	// create response struct
 	response := backend.NewQueryDataResponse()
@@ -94,6 +93,17 @@ type DataSource struct {
 	Value int64  `json:"value"`
 }
 
+type Data struct {
+	DataSourceName string      `json:"dataSourceName"`
+	DataPoints     []string    `json:"dataPoints"`
+	Values         [][]float64 `json:"values"`
+	Time           []int64     `json:"time"`
+}
+
+type RawData struct {
+	Data Data `json:"data"`
+}
+
 type queryModel struct {
 	HostSelected       Host        `json:"hostSelected"`
 	HdsSelected        int64       `json:"hdsSelected"`
@@ -108,35 +118,74 @@ func (d *SampleDatasource) query(_ context.Context, pCtx backend.PluginContext, 
 	// Unmarshal the JSON into our queryModel.
 	var qm queryModel
 	response.Error = json.Unmarshal([]byte(query.JSON), &qm)
-	log.DefaultLogger.Info("query called", "query => ", qm)
 	if response.Error != nil {
 		return response
 	}
 
 	var jsond JSONData
 	AccessKey := pCtx.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
+	Bearer_token := pCtx.DataSourceInstanceSettings.DecryptedSecureJSONData["bearer_token"]
 	response.Error = json.Unmarshal(pCtx.DataSourceInstanceSettings.JSONData, &jsond)
 	if response.Error != nil {
 		log.DefaultLogger.Info("response.Error", response.Error)
 		return response
 	}
-	var fullPath string = "/device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data" + fmt.Sprintf("%s%d", "?start=", query.TimeRange.From) + fmt.Sprintf("%s%d", "?end=", query.TimeRange.To)
+	if !jsond.IsBearerEnabled {
+		Bearer_token = ""
+	}
+
+	var fullPath string = "device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data" + fmt.Sprintf("%s%d", "?start=", query.TimeRange.From.Unix()) + fmt.Sprintf("%s%d", "&end=", query.TimeRange.To.Unix())
 	var resourcePath string = "/device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data"
-	resp := call(jsond.AccessId, AccessKey, resourcePath, fullPath, jsond.Path)
-	log.DefaultLogger.Info("response ==> ", resp)
+
+	resp := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path)
+	bodyText, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.DefaultLogger.Info(" Error reading responce => ", resp.Body)
+	}
+
+	rawdata := RawData{}
+	response.Error = json.Unmarshal(bodyText, &rawdata)
+	if response.Error != nil {
+		log.DefaultLogger.Info("Error Unmarshaling rawdata => ", response.Error)
+		return response
+	}
+
+	// add the frames to the response.
+	response.Frames = append(response.Frames, buildFrame(qm.DataPointSelected, rawdata.Data))
+
+	return response
+}
+
+func buildFrame(dataPointSelected []DataPoint, rawdata Data) *data.Frame {
 	// create data frame response.
 	frame := data.NewFrame("response")
 
-	// add fields.
+	// add fields
 	frame.Fields = append(frame.Fields,
-		data.NewField("time", nil, []time.Time{query.TimeRange.From, query.TimeRange.To}),
-		data.NewField("values", nil, []int64{10, 20}),
+		data.NewField("time", nil, []time.Time{}),
 	)
 
-	// add the frames to the response.
-	response.Frames = append(response.Frames, frame)
-
-	return response
+	for _, element := range dataPointSelected {
+		frame.Fields = append(frame.Fields,
+			data.NewField(element.Label, nil, []float64{}),
+		)
+	}
+	for i, values := range rawdata.Values {
+		vals := make([]interface{}, len(frame.Fields))
+		var idx int = 1
+		vals[0] = time.UnixMilli(rawdata.Time[i])
+		for j, dp := range rawdata.DataPoints {
+			for _, field := range frame.Fields {
+				if field.Name == dp {
+					vals[idx] = values[j]
+					idx++
+					break
+				}
+			}
+		}
+		frame.AppendRow(vals...)
+	}
+	return frame
 }
 
 // CheckHealth handles health checks sent from Grafana to the plugin.
@@ -161,20 +210,25 @@ func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHeal
 }
 
 type JSONData struct {
-	Path     string `json:"path"`
-	AccessId string `json:"accessId"`
+	Path            string `json:"path"`
+	AccessId        string `json:"accessId"`
+	IsBearerEnabled bool   `json:"isBearerEnabled"`
 }
 
 func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
 	response := backend.DataResponse{}
 	var jsond JSONData
 	AccessKey := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
+	Bearer_token := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["bearer_token"]
+	if !jsond.IsBearerEnabled {
+		Bearer_token = ""
+	}
 	response.Error = json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &jsond)
 	if response.Error != nil {
 		log.DefaultLogger.Info("response.Error", response.Error)
 		return response.Error
 	}
-	resp := call(jsond.AccessId, AccessKey, req.Path, req.URL, jsond.Path)
+	resp := call(jsond.AccessId, AccessKey, Bearer_token, req.Path, req.URL, jsond.Path)
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.DefaultLogger.Info(" Error reading responce => ", resp.Body)
@@ -185,12 +239,19 @@ func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallRe
 	})
 }
 
-func call(accessId, accessKey, resourcePath, fullPath, host string) *http.Response {
+func call(accessId, accessKey, Bearer_token, resourcePath, fullPath, host string) *http.Response {
 	var url string = "https://" + host + ".logicmonitor.com/santaba/rest/"
 	url = url + fullPath
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Add("Authorization", getLMv1(accessId, accessKey, "/"+resourcePath))
+	if err != nil {
+		log.DefaultLogger.Info(" Error creating http request => ", err)
+	}
+	if len(Bearer_token) > 0 {
+		req.Header.Add("Authorization", "Bearer "+Bearer_token)
+	} else {
+		req.Header.Add("Authorization", getLMv1(accessId, accessKey, "/"+resourcePath))
+	}
 	if resourcePath == "autocomplete/names" {
 		req.Header.Add("x-version", "3")
 	}
