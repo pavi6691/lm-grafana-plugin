@@ -17,7 +17,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
-	"github.com/grafana/grafana-plugin-sdk-go/live"
 )
 
 // Make sure SampleDatasource implements required interfaces. This is important to do
@@ -74,21 +73,57 @@ func (d *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryData
 	return response, nil
 }
 
+type Host struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+type Instance struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+type DataPoint struct {
+	Label string `json:"label"`
+	Value int64  `json:"value"`
+}
+
+type DataSource struct {
+	Ds    int64  `json:"ds"`
+	Label string `json:"label"`
+	Value int64  `json:"value"`
+}
+
 type queryModel struct {
-	WithStreaming bool `json:"withStreaming"`
+	HostSelected       Host        `json:"hostSelected"`
+	HdsSelected        int64       `json:"hdsSelected"`
+	DataSourceSelected DataSource  `json:"dataSourceSelected"`
+	InstanceSelected   Instance    `json:"instanceSelected"`
+	DataPointSelected  []DataPoint `json:"dataPointSelected"`
+	WithStreaming      bool        `json:"withStreaming"`
 }
 
 func (d *SampleDatasource) query(_ context.Context, pCtx backend.PluginContext, query backend.DataQuery) backend.DataResponse {
 	response := backend.DataResponse{}
-
 	// Unmarshal the JSON into our queryModel.
 	var qm queryModel
-
-	response.Error = json.Unmarshal(query.JSON, &qm)
+	response.Error = json.Unmarshal([]byte(query.JSON), &qm)
+	log.DefaultLogger.Info("query called", "query => ", qm)
 	if response.Error != nil {
 		return response
 	}
 
+	var jsond JSONData
+	AccessKey := pCtx.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
+	response.Error = json.Unmarshal(pCtx.DataSourceInstanceSettings.JSONData, &jsond)
+	if response.Error != nil {
+		log.DefaultLogger.Info("response.Error", response.Error)
+		return response
+	}
+	var fullPath string = "/device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data" + fmt.Sprintf("%s%d", "?start=", query.TimeRange.From) + fmt.Sprintf("%s%d", "?end=", query.TimeRange.To)
+	var resourcePath string = "/device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data"
+	resp := call(jsond.AccessId, AccessKey, resourcePath, fullPath, jsond.Path)
+	log.DefaultLogger.Info("response ==> ", resp)
 	// create data frame response.
 	frame := data.NewFrame("response")
 
@@ -97,18 +132,6 @@ func (d *SampleDatasource) query(_ context.Context, pCtx backend.PluginContext, 
 		data.NewField("time", nil, []time.Time{query.TimeRange.From, query.TimeRange.To}),
 		data.NewField("values", nil, []int64{10, 20}),
 	)
-
-	// If query called with streaming on then return a channel
-	// to subscribe on a client-side and consume updates from a plugin.
-	// Feel free to remove this if you don't need streaming for your datasource.
-	if qm.WithStreaming {
-		channel := live.Channel{
-			Scope:     live.ScopeDatasource,
-			Namespace: pCtx.DataSourceInstanceSettings.UID,
-			Path:      "stream",
-		}
-		frame.SetMeta(&data.FrameMeta{Channel: channel.String()})
-	}
 
 	// add the frames to the response.
 	response.Frames = append(response.Frames, frame)
