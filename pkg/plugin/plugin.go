@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ReneKroon/ttlcache"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
@@ -56,9 +57,9 @@ func (d *SampleDatasource) Dispose() {
 // The QueryDataResponse contains a map of RefID to the response for each query, and each response
 // contains Frames ([]*Frame).
 
-var cacheData = make(map[int64]*data.Frame)
+var cacheData = ttlcache.NewCache()
 
-var lastExecutedTime = make(map[int64]int64)
+var lastExecutedTime = ttlcache.NewCache()
 
 func (d *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 
@@ -117,7 +118,7 @@ type queryModel struct {
 	DataPointSelected  []DataPoint `json:"dataPointSelected"`
 	WithStreaming      bool        `json:"withStreaming"`
 	CollectInterval    int64       `json:"collectInterval"`
-	UniqueId           int64       `json:"uniqueId"`
+	UniqueId           string      `json:"uniqueId"`
 }
 
 func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, query backend.DataQuery) backend.DataResponse {
@@ -129,9 +130,14 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 		return response
 	}
 
-	value, present := lastExecutedTime[qm.UniqueId]
-	if present && (value+(qm.CollectInterval*1000)) > time.Now().UnixMilli() {
-		response.Frames = append(response.Frames, cacheData[qm.UniqueId])
+	value, present := lastExecutedTime.Get(qm.UniqueId)
+	if present && (value.(int64)+(qm.CollectInterval*1000)) > time.Now().UnixMilli() {
+		frameValue, framePresent := cacheData.Get(qm.UniqueId)
+		if framePresent {
+			response.Frames = append(response.Frames, frameValue.(*data.Frame))
+		} else {
+			log.DefaultLogger.Error("Entry not exist in cache  => ", qm.UniqueId)
+		}
 		return response
 	}
 
@@ -150,7 +156,8 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 	var fullPath string = "device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data" + fmt.Sprintf("%s%d", "?start=", query.TimeRange.From.Unix()) + fmt.Sprintf("%s%d", "&end=", query.TimeRange.To.Unix())
 	var resourcePath string = "/device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data"
 
-	log.DefaultLogger.Info("Requesting data from LM for.. ", qm)
+	log.DefaultLogger.Info("Calling API for query = ", qm)
+	log.DefaultLogger.Info("Cache size = ", cacheData.Count())
 
 	resp := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path)
 	bodyText, err := ioutil.ReadAll(resp.Body)
@@ -169,8 +176,8 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 	// add the frames to the response.
 	response.Frames = append(response.Frames, frame)
 
-	cacheData[qm.UniqueId] = frame
-	lastExecutedTime[qm.UniqueId] = time.Now().UnixMilli()
+	cacheData.SetWithTTL(qm.UniqueId, frame, time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
+	lastExecutedTime.SetWithTTL(qm.UniqueId, time.Now().UnixMilli(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
 
 	return response
 }

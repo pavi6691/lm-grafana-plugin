@@ -8,9 +8,7 @@ type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 export class QueryEditor extends PureComponent<Props> {
   getRawData = () => {
     const { onChange, query, onRunQuery } = this.props;
-    if(query.uniqueId === undefined) {
-       query.uniqueId = new Date().getTime();
-    }
+    query.uniqueId = new Date().getTime() + '';
     onChange({ ...query });
     onRunQuery();
   };
