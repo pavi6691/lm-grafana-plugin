@@ -9,6 +9,8 @@ interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceOptions, 
 
 interface State {}
 
+const json = require('../package.json');
+
 export class ConfigEditor extends PureComponent<Props, State> {
   
   onPathChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -16,6 +18,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const jsonData = {
       ...options.jsonData,
       path: event.target.value,
+      version: json.version,
     };
     onOptionsChange({ ...options, jsonData });
   };

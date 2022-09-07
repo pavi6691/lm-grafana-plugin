@@ -159,7 +159,7 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 	log.DefaultLogger.Info("Calling API for query = ", qm)
 	log.DefaultLogger.Info("Cache size = ", cacheData.Count())
 
-	resp := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path)
+	resp := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil || resp.StatusCode != 200 {
 		log.DefaultLogger.Info(" Error reading responce => ", resp.Body)
@@ -239,6 +239,7 @@ type JSONData struct {
 	Path            string `json:"path"`
 	AccessId        string `json:"accessId"`
 	IsBearerEnabled bool   `json:"isBearerEnabled"`
+	Version         string `json:"version"`
 }
 
 func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
@@ -254,7 +255,7 @@ func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallRe
 		log.DefaultLogger.Info("response.Error", response.Error)
 		return response.Error
 	}
-	resp := call(jsond.AccessId, AccessKey, Bearer_token, req.Path, req.URL, jsond.Path)
+	resp := call(jsond.AccessId, AccessKey, Bearer_token, req.Path, req.URL, jsond.Path, jsond.Version)
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.DefaultLogger.Info(" Error reading responce => ", resp.Body)
@@ -265,7 +266,7 @@ func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallRe
 	})
 }
 
-func call(accessId, accessKey, Bearer_token, resourcePath, fullPath, host string) *http.Response {
+func call(accessId, accessKey, Bearer_token, resourcePath, fullPath, host string, version string) *http.Response {
 	var url string = "https://" + host + ".logicmonitor.com/santaba/rest/"
 	url = url + fullPath
 	client := &http.Client{}
@@ -278,6 +279,8 @@ func call(accessId, accessKey, Bearer_token, resourcePath, fullPath, host string
 	} else {
 		req.Header.Add("Authorization", getLMv1(accessId, accessKey, "/"+resourcePath))
 	}
+	req.Header.Add("User-Agent", "LM-Grafana-"+host+":"+version)
+
 	if resourcePath == "autocomplete/names" {
 		req.Header.Add("x-version", "3")
 	}
