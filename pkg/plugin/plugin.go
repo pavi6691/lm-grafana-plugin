@@ -55,6 +55,11 @@ func (d *SampleDatasource) Dispose() {
 // req contains the queries []DataQuery (where each query contains RefID as a unique identifier).
 // The QueryDataResponse contains a map of RefID to the response for each query, and each response
 // contains Frames ([]*Frame).
+
+var cacheData = make(map[int64]*data.Frame)
+
+var lastExecutedTime = make(map[int64]int64)
+
 func (d *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 
 	// create response struct
@@ -111,14 +116,22 @@ type queryModel struct {
 	InstanceSelected   Instance    `json:"instanceSelected"`
 	DataPointSelected  []DataPoint `json:"dataPointSelected"`
 	WithStreaming      bool        `json:"withStreaming"`
+	CollectInterval    int64       `json:"collectInterval"`
+	UniqueId           int64       `json:"uniqueId"`
 }
 
-func (d *SampleDatasource) query(_ context.Context, pCtx backend.PluginContext, query backend.DataQuery) backend.DataResponse {
+func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, query backend.DataQuery) backend.DataResponse {
 	response := backend.DataResponse{}
 	// Unmarshal the JSON into our queryModel.
 	var qm queryModel
 	response.Error = json.Unmarshal([]byte(query.JSON), &qm)
-	if response.Error != nil {
+	if response.Error != nil || qm.DataPointSelected == nil {
+		return response
+	}
+
+	value, present := lastExecutedTime[qm.UniqueId]
+	if present && (value+(qm.CollectInterval*1000)) > time.Now().UnixMilli() {
+		response.Frames = append(response.Frames, cacheData[qm.UniqueId])
 		return response
 	}
 
@@ -137,10 +150,13 @@ func (d *SampleDatasource) query(_ context.Context, pCtx backend.PluginContext, 
 	var fullPath string = "device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data" + fmt.Sprintf("%s%d", "?start=", query.TimeRange.From.Unix()) + fmt.Sprintf("%s%d", "&end=", query.TimeRange.To.Unix())
 	var resourcePath string = "/device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data"
 
+	log.DefaultLogger.Info("Requesting data from LM for.. ", qm)
+
 	resp := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path)
 	bodyText, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
+	if err != nil || resp.StatusCode != 200 {
 		log.DefaultLogger.Info(" Error reading responce => ", resp.Body)
+		return response
 	}
 
 	rawdata := RawData{}
@@ -149,9 +165,12 @@ func (d *SampleDatasource) query(_ context.Context, pCtx backend.PluginContext, 
 		log.DefaultLogger.Info("Error Unmarshaling rawdata => ", response.Error)
 		return response
 	}
-
+	frame := buildFrame(qm.DataPointSelected, rawdata.Data)
 	// add the frames to the response.
-	response.Frames = append(response.Frames, buildFrame(qm.DataPointSelected, rawdata.Data))
+	response.Frames = append(response.Frames, frame)
+
+	cacheData[qm.UniqueId] = frame
+	lastExecutedTime[qm.UniqueId] = time.Now().UnixMilli()
 
 	return response
 }

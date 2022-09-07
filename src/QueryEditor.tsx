@@ -8,6 +8,9 @@ type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 export class QueryEditor extends PureComponent<Props> {
   getRawData = () => {
     const { onChange, query, onRunQuery } = this.props;
+    if(query.uniqueId === undefined) {
+       query.uniqueId = new Date().getTime();
+    }
     onChange({ ...query });
     onRunQuery();
   };
@@ -122,6 +125,7 @@ export class QueryEditor extends PureComponent<Props> {
           hostArray.push({value: lm_host.id, label: lm_host.name});
         }
       }
+      this.props.query.collectInterval = result.data.data.collectInterval;
     }
     return hostArray;
   }
@@ -318,7 +322,7 @@ export class QueryEditor extends PureComponent<Props> {
       if(dataSourceSelected) {
         const loadDpIdsAsyncOptions = () => {
           setDPLoading(true)
-          const routePath = '/setting/datasources/' + this.props.query.dataSourceSelected.ds + '?format=json&fields=dataPoints';
+          const routePath = '/setting/datasources/' + this.props.query.dataSourceSelected.ds + '?format=json&fields=dataPoints,collectInterval';
           return new Promise<Array<SelectableValue<string>>>((resolve) => {
             setTimeout(() => {
               resolve(this.doDataPointRequest(routePath));

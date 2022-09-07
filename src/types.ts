@@ -10,6 +10,8 @@ export interface MyQuery extends DataQuery {
   instanceSelected: any;
   instanceSearch: any;
   dataPointSelected: any[];
+  collectInterval: number;
+  uniqueId: number;
   withStreaming: boolean;
 }
 export const defaultQuery: Partial<MyQuery> = {
