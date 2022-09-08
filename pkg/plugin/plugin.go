@@ -329,7 +329,11 @@ func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallRe
 		log.DefaultLogger.Info("response.Error", response.Error)
 		return response.Error
 	}
-	resp := call(jsond.AccessId, AccessKey, Bearer_token, req.Path, req.URL, jsond.Path, jsond.Version)
+	resp, err := call(jsond.AccessId, AccessKey, Bearer_token, req.Path, req.URL, jsond.Path, jsond.Version)
+	if err != nil {
+		log.DefaultLogger.Info(" Error from server => ", err)
+		return response.Error
+	}
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.DefaultLogger.Info(" Error reading responce => ", resp.Body)
