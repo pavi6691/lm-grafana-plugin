@@ -157,7 +157,7 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 	}
 
 	var fullPath string = "device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data" + fmt.Sprintf("%s%d", "?start=", query.TimeRange.From.Unix()) + fmt.Sprintf("%s%d", "&end=", query.TimeRange.To.Unix())
-	var resourcePath string = "/device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data"
+	var resourcePath string = "device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data"
 
 	log.DefaultLogger.Info("Calling API for query = ", qm)
 	log.DefaultLogger.Info("Cache size = ", cacheData.Count())
@@ -355,13 +355,13 @@ func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallRe
 	var jsond JSONData
 	AccessKey := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
 	Bearer_token := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["bearer_token"]
-	if !jsond.IsBearerEnabled {
-		Bearer_token = ""
-	}
 	response.Error = json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &jsond)
 	if response.Error != nil {
 		log.DefaultLogger.Info("response.Error", response.Error)
 		return response.Error
+	}
+	if !jsond.IsBearerEnabled {
+		Bearer_token = ""
 	}
 	resp, err := call(jsond.AccessId, AccessKey, Bearer_token, req.Path, req.URL, jsond.Path, jsond.Version)
 	if err != nil {
