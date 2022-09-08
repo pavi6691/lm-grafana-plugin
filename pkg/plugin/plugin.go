@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"time"
 
@@ -159,7 +158,7 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 	log.DefaultLogger.Info("Calling API for query = ", qm)
 	log.DefaultLogger.Info("Cache size = ", cacheData.Count())
 
-	resp := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
+	resp, err := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil || resp.StatusCode != 200 {
 		log.DefaultLogger.Info(" Error reading responce => ", resp.Body)
@@ -214,19 +213,94 @@ func buildFrame(dataPointSelected []DataPoint, rawdata Data) *data.Frame {
 	return frame
 }
 
+type DeviceData struct {
+	DeviceData string `json:"data"`
+	Errmsg     string `json:"errmsg"`
+	Status     int32  `json:"status"`
+}
+
 // CheckHealth handles health checks sent from Grafana to the plugin.
 // The main use case for these health checks is the test button on the
 // datasource configuration page which allows users to verify that
 // a datasource is working as expected.
 func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
-	log.DefaultLogger.Info("CheckHealth called", "request", req)
+	var fullPath string = "device/devices?size=1"
+	var resourcePath string = "device/devices"
 
-	var status = backend.HealthStatusOk
-	var message = "Data source is working"
+	var status = backend.HealthStatusError
+	var message = "Datasource Health Check Failed"
 
-	if rand.Int()%2 == 0 {
+	var jsond JSONData
+	AccessKey := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
+	Bearer_token := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["bearer_token"]
+	response := json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &jsond)
+	if response != nil {
+		log.DefaultLogger.Info("response.Error", response.Error)
+	}
+	if !jsond.IsBearerEnabled {
+		Bearer_token = ""
+	}
+
+	if jsond.Path == "" {
 		status = backend.HealthStatusError
-		message = "randomized error"
+		message = "Company name not entered"
+		return &backend.CheckHealthResult{
+			Status:  status,
+			Message: message,
+		}, nil
+	}
+
+	if jsond.AccessId == "" || AccessKey == "" {
+		status = backend.HealthStatusError
+		if jsond.AccessId == "" && AccessKey == "" {
+			message = "Enable Lmv1 authentication methods and try again"
+		}
+		if AccessKey == "" {
+			message = "Please enter Access Key"
+		}
+		if jsond.AccessId == "" {
+			message = "Please enter AccessId"
+		}
+		return &backend.CheckHealthResult{
+			Status:  status,
+			Message: message,
+		}, nil
+	}
+
+	resp, err := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
+	if err != nil {
+		return &backend.CheckHealthResult{
+			Status:  backend.HealthStatusError,
+			Message: "Invalid Company name",
+		}, nil
+	}
+
+	if resp.StatusCode == 503 || resp.StatusCode == 500 || resp.StatusCode == 400 {
+		status = backend.HealthStatusError
+		message = "Host not reachable / invalid company name configured"
+		return &backend.CheckHealthResult{
+			Status:  status,
+			Message: message,
+		}, nil
+	}
+	bodyText, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.DefaultLogger.Info("Error Unmarshaling healthcheck  => ", err.Error)
+	}
+	deviceData := DeviceData{}
+	json.Unmarshal(bodyText, &deviceData)
+	if deviceData.Status == 200 {
+		status = backend.HealthStatusOk
+		message = "Authentication Success"
+	} else if deviceData.Status == 1401 {
+		status = backend.HealthStatusError
+		message = "" + deviceData.Errmsg
+	} else if deviceData.Status == 400 {
+		status = backend.HealthStatusError
+		message = "Invalid Token for Comapny or " + deviceData.Errmsg
+	} else {
+		status = backend.HealthStatusError
+		message = "" + deviceData.Errmsg
 	}
 
 	return &backend.CheckHealthResult{
@@ -266,7 +340,7 @@ func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallRe
 	})
 }
 
-func call(accessId, accessKey, Bearer_token, resourcePath, fullPath, host string, version string) *http.Response {
+func call(accessId, accessKey, Bearer_token, resourcePath, fullPath, host string, version string) (*http.Response, error) {
 	var url string = "https://" + host + ".logicmonitor.com/santaba/rest/"
 	url = url + fullPath
 	client := &http.Client{}
@@ -288,7 +362,7 @@ func call(accessId, accessKey, Bearer_token, resourcePath, fullPath, host string
 	if err != nil {
 		log.DefaultLogger.Info(" Error executing => "+url, err)
 	}
-	return resp
+	return resp, err
 }
 
 func getLMv1(accessId, accessKey, resourcePath string) string {
