@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"time"
 
@@ -60,6 +61,8 @@ var cacheData = ttlcache.NewCache()
 
 var lastExecutedTime = ttlcache.NewCache()
 
+var timeRangeChanged = ttlcache.NewCache()
+
 func (d *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 
 	// create response struct
@@ -99,14 +102,14 @@ type DataSource struct {
 }
 
 type Data struct {
-	DataSourceName string      `json:"dataSourceName"`
-	DataPoints     []string    `json:"dataPoints"`
-	Values         [][]float64 `json:"values"`
-	Time           []int64     `json:"time"`
+	DataSourceName string          `json:"dataSourceName,omitempty"`
+	DataPoints     []string        `json:"dataPoints,omitempty"`
+	Values         [][]interface{} `json:"values,omitempty"`
+	Time           []int64         `json:"time,omitempty"`
 }
 
 type RawData struct {
-	Data Data `json:"data"`
+	Data Data `json:"data,omitempty"`
 }
 
 type queryModel struct {
@@ -130,7 +133,8 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 	}
 
 	value, present := lastExecutedTime.Get(qm.UniqueId)
-	if present && (value.(int64)+(qm.CollectInterval*1000)) > time.Now().UnixMilli() {
+	tvalue, tPresent := timeRangeChanged.Get(qm.UniqueId)
+	if present && (value.(int64)+(qm.CollectInterval*1000)) > time.Now().UnixMilli() && tPresent && tvalue == query.TimeRange.Duration() {
 		frameValue, framePresent := cacheData.Get(qm.UniqueId)
 		if framePresent {
 			response.Frames = append(response.Frames, frameValue.(*data.Frame))
@@ -159,6 +163,11 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 	log.DefaultLogger.Info("Cache size = ", cacheData.Count())
 
 	resp, err := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
+	if err != nil {
+		log.DefaultLogger.Info(" Error from server => ", resp.Body)
+		response.Error = err
+		return response
+	}
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil || resp.StatusCode != 200 {
 		log.DefaultLogger.Info(" Error reading responce => ", resp.Body)
@@ -177,6 +186,7 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 
 	cacheData.SetWithTTL(qm.UniqueId, frame, time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
 	lastExecutedTime.SetWithTTL(qm.UniqueId, time.Now().UnixMilli(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
+	timeRangeChanged.SetWithTTL(qm.UniqueId, query.TimeRange.Duration(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
 
 	return response
 }
@@ -202,7 +212,11 @@ func buildFrame(dataPointSelected []DataPoint, rawdata Data) *data.Frame {
 		for j, dp := range rawdata.DataPoints {
 			for _, field := range frame.Fields {
 				if field.Name == dp {
-					vals[idx] = values[j]
+					if values[j] == "No Data" {
+						vals[idx] = math.NaN()
+					} else {
+						vals[idx] = values[j]
+					}
 					idx++
 					break
 				}
