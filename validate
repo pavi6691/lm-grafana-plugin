@@ -2,6 +2,8 @@ if [[ $1 == "clean" ]];
 then
  rm -rf logicmonitor-logic-monitor
  rm -rf logicmonitor-logic-monitor-1.0.0.zip
+ mage -v
+ yarn dev
 else
 rm -rf logicmonitor-logic-monitor
 rm -rf logicmonitor-logic-monitor-1.0.0.zip
