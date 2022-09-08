@@ -238,22 +238,12 @@ type DeviceData struct {
 // datasource configuration page which allows users to verify that
 // a datasource is working as expected.
 func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
-	var fullPath string = "device/devices?size=1"
-	var resourcePath string = "device/devices"
+
+	var jsond JSONData
+	response := json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &jsond)
 
 	var status = backend.HealthStatusError
 	var message = "Datasource Health Check Failed"
-
-	var jsond JSONData
-	AccessKey := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
-	Bearer_token := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["bearer_token"]
-	response := json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &jsond)
-	if response != nil {
-		log.DefaultLogger.Info("response.Error", response.Error)
-	}
-	if !jsond.IsBearerEnabled {
-		Bearer_token = ""
-	}
 
 	if jsond.Path == "" {
 		status = backend.HealthStatusError
@@ -264,21 +254,43 @@ func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHeal
 		}, nil
 	}
 
-	if jsond.AccessId == "" || AccessKey == "" {
-		status = backend.HealthStatusError
-		if jsond.AccessId == "" && AccessKey == "" {
-			message = "Enable Lmv1 authentication methods and try again"
+	var fullPath string = "device/devices?size=1"
+	var resourcePath string = "device/devices"
+
+	AccessKey := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
+	Bearer_token := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["bearer_token"]
+	if response != nil {
+		log.DefaultLogger.Info("response.Error", response.Error)
+	}
+
+	if !jsond.IsBearerEnabled {
+		Bearer_token = ""
+	} else {
+		if Bearer_token == "" {
+			return &backend.CheckHealthResult{
+				Status:  backend.HealthStatusError,
+				Message: "Please enter bearer token",
+			}, nil
 		}
-		if AccessKey == "" {
-			message = "Please enter Access Key"
+	}
+
+	if jsond.IsLMV1Enabled {
+		if jsond.AccessId == "" || AccessKey == "" {
+			status = backend.HealthStatusError
+			if jsond.AccessId == "" && AccessKey == "" {
+				message = "Enable Lmv1 authentication methods and try again"
+			}
+			if AccessKey == "" {
+				message = "Please enter Access Key"
+			}
+			if jsond.AccessId == "" {
+				message = "Please enter AccessId"
+			}
+			return &backend.CheckHealthResult{
+				Status:  status,
+				Message: message,
+			}, nil
 		}
-		if jsond.AccessId == "" {
-			message = "Please enter AccessId"
-		}
-		return &backend.CheckHealthResult{
-			Status:  status,
-			Message: message,
-		}, nil
 	}
 
 	resp, err := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
@@ -327,6 +339,7 @@ type JSONData struct {
 	Path            string `json:"path"`
 	AccessId        string `json:"accessId"`
 	IsBearerEnabled bool   `json:"isBearerEnabled"`
+	IsLMV1Enabled   bool   `json:"isLMV1Enabled"`
 	Version         string `json:"version"`
 }
 
