@@ -263,6 +263,13 @@ func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHeal
 		log.DefaultLogger.Info("response.Error", response.Error)
 	}
 
+	if !jsond.IsLMV1Enabled && !jsond.IsBearerEnabled {
+		return &backend.CheckHealthResult{
+			Status:  backend.HealthStatusError,
+			Message: "Please Authenticate to use the plugin",
+		}, nil
+	}
+
 	if !jsond.IsBearerEnabled {
 		Bearer_token = ""
 	} else {
