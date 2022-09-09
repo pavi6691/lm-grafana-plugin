@@ -1,0 +1,46 @@
+if [[ $1 == "restore" ]];
+then
+ echo "Restoring plugin .."
+ rm -rf logicmonitor-logic-monitor
+ rm -rf logicmonitor-logic-monitor-1.0.0.zip
+ mage -v
+ yarn dev
+fi
+if [[ $1 == "zip" ]];
+then
+echo "" 
+echo "Preparing plugin zip .."
+echo "" 
+rm -rf logicmonitor-logic-monitor
+rm -rf logicmonitor-logic-monitor-1.0.0.zip
+yarn install --pure-lockfile
+yarn build
+mage
+mv dist/ logicmonitor-logic-monitor
+zip logicmonitor-logic-monitor-1.0.0.zip logicmonitor-logic-monitor -r
+rm -rf logicmonitor-logic-monitor
+fi
+if [[ $1 == "validate" ]];
+then
+./lm zip
+if [ ! -f "$HOME/go/bin/plugincheck" ]; then    
+    echo "" 
+    echo "plugincheck not available downloaing.."
+    echo ""
+    git clone https://github.com/grafana/plugin-validator.git
+    cd plugin-validator/pkg/cmd/plugincheck
+    go install
+    cd ../plugincheck2
+    go install
+    cd ..
+    cd ..
+    cd ..
+    cd ..
+    rm -rf plugin-validator
+fi
+echo ""
+echo "Started validating Plguin .."
+echo ""
+$HOME/go/bin/plugincheck logicmonitor-logic-monitor-1.0.0.zip
+$HOME/go/bin/plugincheck2 lm-grafana-plugin/logicmonitor-logic-monitor-1.0.0.zip
+fi
