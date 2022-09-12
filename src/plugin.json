@@ -1,8 +1,7 @@
 {
-  "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
-  "type": "datasource",
+  "type": "app",
   "name": "LogicMonitor",
-  "id": "logicmonitor-logic-monitor",
+  "id": "logicmonitor-logic-monitor-app",
   "metrics": true,
   "backend": true,
   "executable": "gpx_LogicMonitor",
