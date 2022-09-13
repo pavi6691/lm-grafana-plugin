@@ -96,7 +96,7 @@ async function main() {
 
   try {
     await publishAssets(
-      `alexanderzobnin-Logicmonitor-app-${releaseVersion}.zip`,
+      `logicmonitor-datasource-${releaseVersion}.zip`,
       `https://uploads.github.com/repos/${GRAFANA_LOGICMONITOR_OWNER}/${GRAFANA_LOGICMONITOR_REPO}/releases/${releaseId}/assets`
     );
     // Upload package info with md5 checksum
