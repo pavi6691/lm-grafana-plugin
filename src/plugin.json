@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "LogicMonitor",
+  "executable": "logicmonitor-plugin",
   "id": "logicmonitor-datasource",
   "metrics": true,
   "backend": true,
