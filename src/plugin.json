@@ -1,10 +1,10 @@
 {
-  "type": "app",
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "datasource",
   "name": "LogicMonitor",
-  "id": "logicmonitor-logic-monitor-app",
+  "id": "logicmonitor-datasource",
   "metrics": true,
   "backend": true,
-  "executable": "gpx_LogicMonitor",
   "routes": [
     {
       "path": "device/devices",
@@ -55,9 +55,11 @@
     "description": "",
     "author": {
       "name": "praveen.karadi@logicmonitor.com",
-      "url": "Logicmonitor.com"
+      "url": "http://www.logicmonitor.com"
     },
-    "keywords": [],
+    "keywords": [
+      "logicmonitor"
+    ],
     "logos": {
       "small": "img/small_logo.png",
       "large": "img/LM_Logo.png"

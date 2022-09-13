@@ -411,7 +411,7 @@ export class QueryEditor extends PureComponent<Props> {
           />
         </div>
         <div style={{ display: 'flex', marginBottom:5 }}>
-          <InlineLabel width={12}>Devices</InlineLabel>
+          <InlineLabel width={12}>Resources</InlineLabel>
           <Select
             width={200}
             menuPlacement={'bottom'}
