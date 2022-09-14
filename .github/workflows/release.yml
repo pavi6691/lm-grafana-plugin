@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    # tags:
-    #   - "v*.*.*" # Run workflow on version tags, e.g. v1.0.0.
+    tags:
+      - "v*.*.*" # Run workflow on version tags, e.g. v1.0.0.
 
 jobs:
   release:
@@ -76,7 +76,7 @@ jobs:
           args: buildAll
 
       - name: Sign plugin
-        run: yarn sign --rootUrls http://localhost:3000
+        run: yarn sign
         env:
           GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }} # Requires a Grafana API key from Grafana.com.
 
@@ -105,8 +105,8 @@ jobs:
           awk '/^## / {s++} s == 1 {print}' CHANGELOG.md > release_notes.md
           echo "::set-output name=path::release_notes.md"
 
-      # - name: Check package version
-      #   run: if [ "v${{ steps.metadata.outputs.plugin-version }}" != "${{ steps.metadata.outputs.github-tag }}" ]; then printf "\033[0;31mPlugin version doesn't match tag name\033[0m\n"; exit 1; fi
+      - name: Check package version
+        run: if [ "v${{ steps.metadata.outputs.plugin-version }}" != "${{ steps.metadata.outputs.github-tag }}" ]; then printf "\033[0;31mPlugin version doesn't match tag name\033[0m\n"; exit 1; fi
 
       - name: Package plugin
         id: package-plugin
@@ -116,13 +116,13 @@ jobs:
           md5sum ${{ steps.metadata.outputs.archive }} > ${{ steps.metadata.outputs.archive-checksum }}
           echo "::set-output name=checksum::$(cat ./${{ steps.metadata.outputs.archive-checksum }} | cut -d' ' -f1)"
 
-      # - name: Lint plugin
-      #   run: |
-      #     git clone https://github.com/grafana/plugin-validator
-      #     pushd ./plugin-validator/pkg/cmd/plugincheck
-      #     go install
-      #     popd
-      #     plugincheck ${{ steps.metadata.outputs.archive }}
+      - name: Lint plugin
+        run: |
+          git clone https://github.com/grafana/plugin-validator
+          pushd ./plugin-validator/pkg/cmd/plugincheck
+          go install
+          popd
+          plugincheck ${{ steps.metadata.outputs.archive }}
 
       - name: Create release
         id: create_release
