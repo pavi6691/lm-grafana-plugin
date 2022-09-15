@@ -2,10 +2,10 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "LogicMonitor",
-  "id": "logicmonitor-logic-monitor",
+  "executable": "logicmonitor-plugin",
+  "id": "logicmonitor-datasource",
   "metrics": true,
   "backend": true,
-  "executable": "gpx_LogicMonitor",
   "routes": [
     {
       "path": "device/devices",
@@ -53,12 +53,14 @@
     }
   ],
   "info": {
-    "description": "",
+    "description": "LogicMonitor plugin for Grafana",
     "author": {
-      "name": "praveen.karadi@logicmonitor.com",
-      "url": "Logicmonitor.com"
+      "name": "https://www.logicmonitor.com",
+      "url": "http://www.logicmonitor.com"
     },
-    "keywords": [],
+    "keywords": [
+      "logicmonitor"
+    ],
     "logos": {
       "small": "img/small_logo.png",
       "large": "img/LM_Logo.png"
@@ -66,14 +68,35 @@
     "links": [
       {
         "name": "Website",
+        "url": "https://www.logicmonitor.com"
+      },
+      {
+        "name": "GitHub",
         "url": "https://github.com/grafana/grafana-starter-datasource-backend"
+      },
+      {
+        "name": "Docs",
+        "url": "https://github.com/grafana/grafana-starter-datasource-backend/blob/main/README.md"
       },
       {
         "name": "License",
         "url": "https://github.com/grafana/grafana-starter-datasource-backend/blob/master/LICENSE"
       }
     ],
-    "screenshots": [],
+    "screenshots": [
+      {
+        "name": "Settings",
+        "path": "screenshots/Settings.png"
+      },
+      {
+        "name": "Query",
+        "path": "screenshots/QueryWithGraph.png"
+      },
+      {
+        "name": "Dashboard-1",
+        "path": "screenshots/Dashboard1.png"
+      }
+    ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },

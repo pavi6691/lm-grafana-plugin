@@ -1,70 +1,35 @@
-# Grafana Data Source Backend Plugin Template
+# LogicMonitor plugin for Grafana
 
-[![Build](https://github.com/grafana/grafana-starter-datasource-backend/workflows/CI/badge.svg)](https://github.com/grafana/grafana-datasource-backend/actions?query=workflow%3A%22CI%22)
+Visualize your LogicMonitor metrics with the leading open source software for time series analytics.
 
-This template is a starting point for building Grafana Data Source Backend Plugins
+![Dashboard](https://drive.google.com/file/d/1G-y4z_Vb1UCqYr6F8tT7yh_vWNYItrBf/view?usp=sharing)
 
-## What is Grafana Data Source Backend Plugin?
+## Features
 
-Grafana supports a wide range of data sources, including Prometheus, MySQL, and even Datadog. There’s a good chance you can already visualize metrics from the systems you have set up. In some cases, though, you already have an in-house metrics solution that you’d like to add to your Grafana dashboards. Grafana Data Source Plugins enables integrating such solutions with Grafana.
+- Create interactive and support to reuse dashboards by exporting them in the form of json
+- Familier query selection as on Logicmonitor
+- No hazzles writting query using sql,regex or any other sytax
+- Easy selection by either service/devices, followed by device, datasource, instances and datapoints.
+- Multiple metrics are supported on single query
+- Can have metrics from multiple data sources in single panel
 
-For more information about backend plugins, refer to the documentation on [Backend plugins](https://grafana.com/docs/grafana/latest/developers/plugins/backend/).
+## Installation
+
+Install by using `grafana-cli`
+
+```sh
+grafana-cli plugins install logicmonitor-datasource
+```
 
 ## Getting started
+- Once plugin is installed, add it
+- On settings page, privice company name and athenticate by providing LMv1 access id and api key
+Then you can create your first dashboard with step-by-step
 
-A data source backend plugin consists of both frontend and backend components.
+## Community Resources, Feedback, and Support
+- Have a question? You also can open issue, but for questions, it would be better to use [Grafana Community](https://community.grafana.com/) portal.
+- Need additional support? Contact us at [https://www.logicmonitor.com/support/]https://www.logicmonitor.com/support/
 
-### Frontend
+---
 
-1. Install dependencies
-
-   ```bash
-   yarn install
-   ```
-
-2. Build plugin in development mode or run in watch mode
-
-   ```bash
-   yarn dev
-   ```
-
-   or
-
-   ```bash
-   yarn watch
-   ```
-
-3. Build plugin in production mode
-
-   ```bash
-   yarn build
-   ```
-
-### Backend
-
-1. Update [Grafana plugin SDK for Go](https://grafana.com/docs/grafana/latest/developers/plugins/backend/grafana-plugin-sdk-for-go/) dependency to the latest minor version:
-
-   ```bash
-   go get -u github.com/grafana/grafana-plugin-sdk-go
-   go mod tidy
-   ```
-
-2. Build backend plugin binaries for Linux, Windows and Darwin:
-
-   ```bash
-   mage -v
-   ```
-
-3. List all available Mage targets for additional commands:
-
-   ```bash
-   mage -l
-   ```
-
-## Learn more
-
-- [Build a data source backend plugin tutorial](https://grafana.com/tutorials/build-a-data-source-backend-plugin)
-- [Grafana documentation](https://grafana.com/docs/)
-- [Grafana Tutorials](https://grafana.com/tutorials/) - Grafana Tutorials are step-by-step guides that help you make the most of Grafana
-- [Grafana UI Library](https://developers.grafana.com/ui) - UI components to help you build interfaces using Grafana Design System
-- [Grafana plugin SDK for Go](https://grafana.com/docs/grafana/latest/developers/plugins/backend/grafana-plugin-sdk-for-go/)
+Licensed under the Apache 2.0 License
