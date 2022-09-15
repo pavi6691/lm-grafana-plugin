@@ -418,7 +418,7 @@ export class QueryEditor extends PureComponent<Props> {
             defaultValue={this.props.query.hostSelected}
             options={hostOptions}
             // filterOption={optionStartsWithValue}
-            placeholder="Devices"
+            placeholder="Resources"
             isLoading={isDeviceLoading}
             noOptionsMessage='No devices found'
             loadingMessage='Fetching devices...'

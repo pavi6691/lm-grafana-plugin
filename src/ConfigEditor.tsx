@@ -125,8 +125,9 @@ export class ConfigEditor extends PureComponent<Props, State> {
         </div>
         <div className="gf-form">
         <div style={{ display: 'flex', marginBottom:2 }}>
-          <InlineLabel width={20}>Bearer token</InlineLabel>
+          <InlineLabel aria-disabled={true} tooltip="Currently disabled to mandate LMv1 authentication" width={20}>Bearer token</InlineLabel>
           <InlineSwitch
+            disabled={true}
             defaultChecked={jsonData.isBearerEnabled}
             checked={jsonData.isBearerEnabled}
             showLabel={true}

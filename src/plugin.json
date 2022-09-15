@@ -53,7 +53,7 @@
     }
   ],
   "info": {
-    "description": "",
+    "description": "LogicMonitor plugin for Grafana",
     "author": {
       "name": "https://www.logicmonitor.com",
       "url": "http://www.logicmonitor.com"
@@ -68,14 +68,35 @@
     "links": [
       {
         "name": "Website",
+        "url": "https://www.logicmonitor.com"
+      },
+      {
+        "name": "GitHub",
         "url": "https://github.com/grafana/grafana-starter-datasource-backend"
+      },
+      {
+        "name": "Docs",
+        "url": "https://github.com/grafana/grafana-starter-datasource-backend/blob/main/README.md"
       },
       {
         "name": "License",
         "url": "https://github.com/grafana/grafana-starter-datasource-backend/blob/master/LICENSE"
       }
     ],
-    "screenshots": [],
+    "screenshots": [
+      {
+        "name": "Settings",
+        "path": "screenshots/Settings.png"
+      },
+      {
+        "name": "Query",
+        "path": "screenshots/QueryWithGraph.png"
+      },
+      {
+        "name": "Dashboard-1",
+        "path": "screenshots/Dashboard1.png"
+      }
+    ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },

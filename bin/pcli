@@ -41,6 +41,6 @@ fi
 echo ""
 echo "Started validating Plguin .."
 echo ""
-$HOME/go/bin/plugincheck logicmonitor-logic-monitor-1.0.0.zip
-$HOME/go/bin/plugincheck2 lm-grafana-plugin/logicmonitor-logic-monitor-1.0.0.zip
+$HOME/go/bin/plugincheck ci/packages/logicmonitor-datasource-1.0.0.zip
+$HOME/go/bin/plugincheck2 ci/packages/logicmonitor-datasource-1.0.0.zip
 fi
