@@ -2,22 +2,20 @@ package plugin
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	b64 "encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math"
-	"net/http"
 	"time"
 
-	"github.com/ReneKroon/ttlcache"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
+	"github.com/grafana/grafana-starter-datasource-backend/pkg/cache"
+	"github.com/grafana/grafana-starter-datasource-backend/pkg/constants"
+	httpClient "github.com/grafana/grafana-starter-datasource-backend/pkg/httpClient"
+	"github.com/grafana/grafana-starter-datasource-backend/pkg/models"
 )
 
 // Make sure SampleDatasource implements required interfaces. This is important to do
@@ -57,12 +55,6 @@ func (d *SampleDatasource) Dispose() {
 // The QueryDataResponse contains a map of RefID to the response for each query, and each response
 // contains Frames ([]*Frame).
 
-var cacheData = ttlcache.NewCache()
-
-var lastExecutedTime = ttlcache.NewCache()
-
-var timeRangeChanged = ttlcache.NewCache()
-
 func (d *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 
 	// create response struct
@@ -80,62 +72,19 @@ func (d *SampleDatasource) QueryData(ctx context.Context, req *backend.QueryData
 	return response, nil
 }
 
-type Host struct {
-	Label string `json:"label"`
-	Value string `json:"value"`
-}
-
-type Instance struct {
-	Label string `json:"label"`
-	Value string `json:"value"`
-}
-
-type DataPoint struct {
-	Label string `json:"label"`
-	Value int64  `json:"value"`
-}
-
-type DataSource struct {
-	Ds    int64  `json:"ds"`
-	Label string `json:"label"`
-	Value int64  `json:"value"`
-}
-
-type Data struct {
-	DataSourceName string          `json:"dataSourceName,omitempty"`
-	DataPoints     []string        `json:"dataPoints,omitempty"`
-	Values         [][]interface{} `json:"values,omitempty"`
-	Time           []int64         `json:"time,omitempty"`
-}
-
-type RawData struct {
-	Data Data `json:"data,omitempty"`
-}
-
-type queryModel struct {
-	HostSelected       Host        `json:"hostSelected"`
-	HdsSelected        int64       `json:"hdsSelected"`
-	DataSourceSelected DataSource  `json:"dataSourceSelected"`
-	InstanceSelected   Instance    `json:"instanceSelected"`
-	DataPointSelected  []DataPoint `json:"dataPointSelected"`
-	WithStreaming      bool        `json:"withStreaming"`
-	CollectInterval    int64       `json:"collectInterval"`
-	UniqueId           string      `json:"uniqueId"`
-}
-
 func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, query backend.DataQuery) backend.DataResponse {
 	response := backend.DataResponse{}
 	// Unmarshal the JSON into our queryModel.
-	var qm queryModel
+	var qm models.QueryModel
 	response.Error = json.Unmarshal([]byte(query.JSON), &qm)
 	if response.Error != nil || qm.DataPointSelected == nil {
 		return response
 	}
 
-	value, present := lastExecutedTime.Get(qm.UniqueId)
-	tvalue, tPresent := timeRangeChanged.Get(qm.UniqueId)
+	value, present := cache.GetLastExecutedTime(qm.UniqueId)
+	tvalue, tPresent := cache.GetTimeRangeChanged(qm.UniqueId)
 	if present && (value.(int64)+(qm.CollectInterval*1000)) > time.Now().UnixMilli() && tPresent && tvalue == query.TimeRange.Duration() {
-		frameValue, framePresent := cacheData.Get(qm.UniqueId)
+		frameValue, framePresent := cache.GetData(qm.UniqueId)
 		if framePresent {
 			response.Frames = append(response.Frames, frameValue.(*data.Frame))
 		} else {
@@ -144,7 +93,7 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 		return response
 	}
 
-	var jsond JSONData
+	var jsond models.JSONData
 	AccessKey := pCtx.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
 	Bearer_token := pCtx.DataSourceInstanceSettings.DecryptedSecureJSONData["bearer_token"]
 	response.Error = json.Unmarshal(pCtx.DataSourceInstanceSettings.JSONData, &jsond)
@@ -156,13 +105,13 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 		Bearer_token = ""
 	}
 
-	var fullPath string = "device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data" + fmt.Sprintf("%s%d", "?start=", query.TimeRange.From.Unix()) + fmt.Sprintf("%s%d", "&end=", query.TimeRange.To.Unix())
-	var resourcePath string = "device/devices/" + qm.HostSelected.Value + fmt.Sprintf("%s%d", "/devicedatasources/", qm.HdsSelected) + "/instances/" + qm.InstanceSelected.Value + "/data"
+	fullPath := fmt.Sprintf(constants.RawDataFullPath, qm.HostSelected.Value, qm.HdsSelected, qm.InstanceSelected.Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix())
+	resourcePath := fmt.Sprintf(constants.RawDataResourcePath, qm.HostSelected.Value, qm.HdsSelected, qm.InstanceSelected.Value)
 
 	log.DefaultLogger.Info("Calling API for query = ", qm)
-	log.DefaultLogger.Info("Cache size = ", cacheData.Count())
+	log.DefaultLogger.Info("Cache size = ", cache.RawDataCount())
 
-	resp, err := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
+	resp, err := httpClient.Get(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
 	if err != nil {
 		log.DefaultLogger.Info(" Error from server => ", resp.Body)
 		response.Error = err
@@ -174,7 +123,7 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 		return response
 	}
 
-	rawdata := RawData{}
+	rawdata := models.RawData{}
 	response.Error = json.Unmarshal(bodyText, &rawdata)
 	if response.Error != nil {
 		log.DefaultLogger.Info("Error Unmarshaling rawdata => ", response.Error)
@@ -184,14 +133,12 @@ func (d *SampleDatasource) query(c context.Context, pCtx backend.PluginContext, 
 	// add the frames to the response.
 	response.Frames = append(response.Frames, frame)
 
-	cacheData.SetWithTTL(qm.UniqueId, frame, time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
-	lastExecutedTime.SetWithTTL(qm.UniqueId, time.Now().UnixMilli(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
-	timeRangeChanged.SetWithTTL(qm.UniqueId, query.TimeRange.Duration(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
+	cache.Store(qm, query, frame)
 
 	return response
 }
 
-func buildFrame(dataPointSelected []DataPoint, rawdata Data) *data.Frame {
+func buildFrame(dataPointSelected []models.DataPoint, rawdata models.Data) *data.Frame {
 	// create data frame response.
 	frame := data.NewFrame("response")
 
@@ -227,19 +174,13 @@ func buildFrame(dataPointSelected []DataPoint, rawdata Data) *data.Frame {
 	return frame
 }
 
-type DeviceData struct {
-	DeviceData string `json:"data"`
-	Errmsg     string `json:"errmsg"`
-	Status     int32  `json:"status"`
-}
-
 // CheckHealth handles health checks sent from Grafana to the plugin.
 // The main use case for these health checks is the test button on the
 // datasource configuration page which allows users to verify that
 // a datasource is working as expected.
 func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
 
-	var jsond JSONData
+	var jsond models.JSONData
 	response := json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &jsond)
 
 	var status = backend.HealthStatusError
@@ -300,7 +241,7 @@ func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHeal
 		}
 	}
 
-	resp, err := call(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
+	resp, err := httpClient.Get(jsond.AccessId, AccessKey, Bearer_token, resourcePath, fullPath, jsond.Path, jsond.Version)
 	if err != nil {
 		return &backend.CheckHealthResult{
 			Status:  backend.HealthStatusError,
@@ -320,7 +261,7 @@ func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHeal
 	if err != nil {
 		log.DefaultLogger.Info("Error Unmarshaling healthcheck  => ", err.Error)
 	}
-	deviceData := DeviceData{}
+	deviceData := models.DeviceData{}
 	json.Unmarshal(bodyText, &deviceData)
 	if deviceData.Status == 200 {
 		status = backend.HealthStatusOk
@@ -342,17 +283,9 @@ func (d *SampleDatasource) CheckHealth(_ context.Context, req *backend.CheckHeal
 	}, nil
 }
 
-type JSONData struct {
-	Path            string `json:"path"`
-	AccessId        string `json:"accessId"`
-	IsBearerEnabled bool   `json:"isBearerEnabled"`
-	IsLMV1Enabled   bool   `json:"isLMV1Enabled"`
-	Version         string `json:"version"`
-}
-
 func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
 	response := backend.DataResponse{}
-	var jsond JSONData
+	var jsond models.JSONData
 	AccessKey := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["accessKey"]
 	Bearer_token := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData["bearer_token"]
 	response.Error = json.Unmarshal(req.PluginContext.DataSourceInstanceSettings.JSONData, &jsond)
@@ -363,7 +296,7 @@ func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallRe
 	if !jsond.IsBearerEnabled {
 		Bearer_token = ""
 	}
-	resp, err := call(jsond.AccessId, AccessKey, Bearer_token, req.Path, req.URL, jsond.Path, jsond.Version)
+	resp, err := httpClient.Get(jsond.AccessId, AccessKey, Bearer_token, req.Path, req.URL, jsond.Path, jsond.Version)
 	if err != nil {
 		log.DefaultLogger.Info(" Error from server => ", err)
 		return response.Error
@@ -376,42 +309,6 @@ func (d *SampleDatasource) CallResource(ctx context.Context, req *backend.CallRe
 		Status: resp.StatusCode,
 		Body:   []byte(bodyText),
 	})
-}
-
-func call(accessId, accessKey, Bearer_token, resourcePath, fullPath, host string, version string) (*http.Response, error) {
-	var url string = "https://" + host + ".logicmonitor.com/santaba/rest/"
-	url = url + fullPath
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.DefaultLogger.Info(" Error creating http request => ", err)
-	}
-	if len(Bearer_token) > 0 {
-		req.Header.Add("Authorization", "Bearer "+Bearer_token)
-	} else {
-		req.Header.Add("Authorization", getLMv1(accessId, accessKey, "/"+resourcePath))
-	}
-	req.Header.Add("User-Agent", "LM-Grafana-"+host+":"+version)
-
-	if resourcePath == "autocomplete/names" {
-		req.Header.Add("x-version", "3")
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.DefaultLogger.Info(" Error executing => "+url, err)
-	}
-	return resp, err
-}
-
-func getLMv1(accessId, accessKey, resourcePath string) string {
-	epoch := time.Now().UnixMilli()
-	getEpoch := fmt.Sprintf("%s%d", "GET", epoch)
-	data := getEpoch + resourcePath
-	h := hmac.New(sha256.New, []byte(accessKey))
-	h.Write([]byte(data))
-	sha := hex.EncodeToString(h.Sum(nil))
-	auth := "LMv1 " + accessId + ":" + b64.URLEncoding.EncodeToString([]byte(sha)) + fmt.Sprintf("%s%d", ":", epoch)
-	return auth
 }
 
 // SubscribeStream is called when a client wants to connect to a stream. This callback
