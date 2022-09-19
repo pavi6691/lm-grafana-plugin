@@ -366,7 +366,7 @@ export class QueryEditor extends PureComponent<Props> {
         </div>
         </div>
         <div style={{ display: 'flex', marginBottom:5 }}>
-          <InlineLabel width={12}>Groups</InlineLabel>
+          <InlineLabel width={15}>Groups</InlineLabel>
           <Select
             disabled={isAutocompleteEnabled === false}
             menuPlacement={'bottom'}
@@ -411,17 +411,17 @@ export class QueryEditor extends PureComponent<Props> {
           />
         </div>
         <div style={{ display: 'flex', marginBottom:5 }}>
-          <InlineLabel width={12}>Resources</InlineLabel>
+          <InlineLabel width={15}>Service/Resource</InlineLabel>
           <Select
             width={200}
             menuPlacement={'bottom'}
             defaultValue={this.props.query.hostSelected}
             options={hostOptions}
             // filterOption={optionStartsWithValue}
-            placeholder="Resources"
+            placeholder="Service/Resource"
             isLoading={isDeviceLoading}
-            noOptionsMessage='No devices found'
-            loadingMessage='Fetching devices...'
+            noOptionsMessage='No service/resource found'
+            loadingMessage='Fetching serivces/resources...'
             allowCustomValue={true}
             value={hostSelected}
             onInputChange={(v) => {
@@ -452,7 +452,7 @@ export class QueryEditor extends PureComponent<Props> {
           />
           </div>
           <div style={{ display: 'flex', marginBottom:5 }}>
-          <InlineLabel width={12}>DataSources</InlineLabel>
+          <InlineLabel width={15}>DataSources</InlineLabel>
           <Select
             width={200}
             menuPlacement={'bottom'}
@@ -483,7 +483,7 @@ export class QueryEditor extends PureComponent<Props> {
           />
           </div>
           <div style={{ display: 'flex', marginBottom:5 }}>
-          <InlineLabel width={12} tooltip="Currently single intance is allowed. In the up coming releases multi instance feature will be added">Instances</InlineLabel>
+          <InlineLabel width={15} tooltip="Currently single intance is allowed. In the up coming releases multi instance feature will be added">Instances</InlineLabel>
           <MultiSelect
             width={200}
             menuPlacement={'bottom'}
@@ -512,7 +512,7 @@ export class QueryEditor extends PureComponent<Props> {
           />
           </div>
           <div style={{ display: 'flex', marginBottom:5 }}>
-          <InlineLabel width={12}>DataPoints</InlineLabel>
+          <InlineLabel width={15}>DataPoints</InlineLabel>
           <MultiSelect
             width={200}
             menuPlacement={'bottom'}
