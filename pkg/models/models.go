@@ -40,7 +40,7 @@ type QueryModel struct {
 	DataPointSelected  []DataPoint `json:"dataPointSelected"`
 	WithStreaming      bool        `json:"withStreaming"`
 	CollectInterval    int64       `json:"collectInterval"`
-	UniqueId           string      `json:"uniqueId"`
+	UniqueID           string      `json:"uniqueId"`
 }
 
 type DeviceData struct {
@@ -49,9 +49,9 @@ type DeviceData struct {
 	Status     int32  `json:"status"`
 }
 
-type JSONData struct {
+type PluginSettings struct {
 	Path            string `json:"path"`
-	AccessId        string `json:"accessId"`
+	AccessID        string `json:"accessId"`
 	IsBearerEnabled bool   `json:"isBearerEnabled"`
 	IsLMV1Enabled   bool   `json:"isLMV1Enabled"`
 	Version         string `json:"version"`

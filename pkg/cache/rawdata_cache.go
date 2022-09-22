@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/ReneKroon/ttlcache"
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
-	"github.com/grafana/grafana-starter-datasource-backend/pkg/models"
 )
 
 var cacheData = ttlcache.NewCache()
@@ -32,7 +32,7 @@ func RawDataCount() int {
 }
 
 func Store(qm models.QueryModel, query backend.DataQuery, frame *data.Frame) {
-	cacheData.SetWithTTL(qm.UniqueId, frame, time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
-	lastExecutedTime.SetWithTTL(qm.UniqueId, time.Now().UnixMilli(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
-	timeRangeChanged.SetWithTTL(qm.UniqueId, query.TimeRange.Duration(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
+	cacheData.SetWithTTL(qm.UniqueID, frame, time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
+	lastExecutedTime.SetWithTTL(qm.UniqueID, time.Now().UnixMilli(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
+	timeRangeChanged.SetWithTTL(qm.UniqueID, query.TimeRange.Duration(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
 }

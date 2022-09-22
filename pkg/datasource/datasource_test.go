@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
+	plugin "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/datasource"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	plugin "github.com/grafana/grafana-starter-datasource-backend/pkg/datasource"
 )
 
 // This is where the tests for the datasource backend live.
 func TestQueryData(t *testing.T) {
-	ds := plugin.SampleDatasource{}
+	ds := plugin.LogicmonitorDataSource{}
 
 	resp, err := ds.QueryData(
 		context.Background(),

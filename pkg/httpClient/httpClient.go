@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
-	"github.com/grafana/grafana-starter-datasource-backend/pkg/constants"
 )
 
 func Get(accessId, accessKey, Bearer_token, resourcePath, fullPath, host string, version string) (*http.Response, error) {
