@@ -53,6 +53,11 @@ type PluginSettings struct {
 	Path            string `json:"path"`
 	AccessID        string `json:"accessId"`
 	IsBearerEnabled bool   `json:"isBearerEnabled"`
-	IsLMV1Enabled   bool   `json:"isLMV1Enabled"`
+	IsLMV1Enabled   bool   `json:"isLMV1Enabled"` //nolint:tagliatelle
 	Version         string `json:"version"`
+}
+
+type AuthSettings struct {
+	AccessKey   string
+	BearerToken string
 }

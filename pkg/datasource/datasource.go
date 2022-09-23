@@ -4,28 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
-	httpClient "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpClient"
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpclient"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/logicmonitor"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"io/ioutil"
+	"net/http"
+	"net/http/httputil"
 )
 
-// Make sure LogicmonitorDataSource implements required interfaces. This is important to do
-// since otherwise we will only get a not implemented error response from plugin in
-// runtime. In this example datasource instance implements backend.QueryDataHandler,
-// backend.CheckHealthHandler, backend.StreamHandler interfaces. Plugin should not
-// implement all these interfaces - only those which are required for a particular task.
-// For example if plugin does not need streaming functionality then you are free to remove
-// methods that implement backend.StreamHandler. Implementing instancemgmt.InstanceDisposer
-// is useful to clean up resources used by previous datasource instance when a new datasource
-// instance created upon datasource settings changed.
 var (
-	_ backend.QueryDataHandler   = (*LogicmonitorDataSource)(nil)
-	_ backend.CheckHealthHandler = (*LogicmonitorDataSource)(nil)
-	//_ backend.StreamHandler         = (*LogicmonitorDataSource)(nil)
+	_ backend.QueryDataHandler      = (*LogicmonitorDataSource)(nil)
+	_ backend.CheckHealthHandler    = (*LogicmonitorDataSource)(nil)
 	_ instancemgmt.InstanceDisposer = (*LogicmonitorDataSource)(nil)
 )
 
@@ -33,12 +25,7 @@ type LogicmonitorDataSource struct {
 	dsInfo         *backend.DataSourceInstanceSettings
 	Logger         log.Logger
 	PluginSettings *models.PluginSettings
-	AuthSettings   *AuthSettings
-}
-
-type AuthSettings struct {
-	AccessKey   string
-	BearerToken string
+	AuthSettings   *models.AuthSettings
 }
 
 func LogicmonitorBackendDataSource(dsSettings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
@@ -46,16 +33,19 @@ func LogicmonitorBackendDataSource(dsSettings backend.DataSourceInstanceSettings
 	logger.Debug("Initializing new data source instance")
 
 	var pluginSettings models.PluginSettings
+
 	err := json.Unmarshal(dsSettings.JSONData, &pluginSettings)
 	if err != nil {
 		logger.Error("Error unmarshalling the Plugin Settings", err)
-		return nil, err
+
+		return nil, err //nolint:wrapcheck
 	}
+
 	return &LogicmonitorDataSource{
 		dsInfo:         &dsSettings,
 		Logger:         logger,
 		PluginSettings: &pluginSettings,
-		AuthSettings: &AuthSettings{
+		AuthSettings: &models.AuthSettings{
 			AccessKey:   dsSettings.DecryptedSecureJSONData[constants.AccessKey],
 			BearerToken: dsSettings.DecryptedSecureJSONData[constants.BearerToken],
 		},
@@ -74,13 +64,13 @@ func (ds *LogicmonitorDataSource) Dispose() {
 // The QueryDataResponse contains a map of RefID to the response for each query, and each response
 // contains Frames ([]*Frame).
 
-func (ds *LogicmonitorDataSource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
+func (ds *LogicmonitorDataSource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) { //nolint:lll
 	// create response struct
 	response := backend.NewQueryDataResponse()
 
 	// loop over queries and execute them individually.
 	for _, q := range req.Queries {
-		res := logicmonitor.Query(ctx, ds, req.PluginContext, q)
+		res := logicmonitor.Query(ctx, ds.PluginSettings, ds.AuthSettings, ds.Logger, req.PluginContext, q)
 
 		// save the response in a hashmap
 		// based on with RefID as identifier
@@ -94,188 +84,148 @@ func (ds *LogicmonitorDataSource) QueryData(ctx context.Context, req *backend.Qu
 // The main use case for these health checks is the test button on the
 // datasource configuration page which allows users to verify that
 // a datasource is working as expected.
-func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
-
-	var status = backend.HealthStatusError
-	var message = "Datasource Health Check Failed"
-
-	status, message, result, err2, done := ds.validatePluginSettings(status, message)
-	if done {
-		return result, err2
+func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) { //nolint:lll
+	healthRequest := ds.validatePluginSettings(ds.Logger)
+	if healthRequest.Status == backend.HealthStatusError {
+		return healthRequest, nil
 	}
 
-	resp, err := httpClient.Get(ds.PluginSettings.AccessID, ds.AuthSettings.AccessKey, ds.AuthSettings.BearerToken,
-		constants.DeviceDevicesPath, constants.DevicesSizeOnePath, ds.PluginSettings.Path, ds.PluginSettings.Version)
+	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, constants.DeviceDevicesPath, constants.DevicesSizeOnePath, ds.Logger) //nolint:lll
 	if err != nil {
-		return &backend.CheckHealthResult{
-			Status:  backend.HealthStatusError,
-			Message: "Invalid Company name",
-		}, nil
+		healthRequest.Message = constants.HealthAPIErrMsg
+		healthRequest.Status = backend.HealthStatusError
+
+		return healthRequest, nil //nolint:nilerr
 	}
 
-	if resp.StatusCode == 503 || resp.StatusCode == 500 || resp.StatusCode == 400 {
-		status = backend.HealthStatusError
-		message = "Host not reachable / invalid company name configured"
-		return &backend.CheckHealthResult{
-			Status:  status,
-			Message: message,
-		}, nil
+	if resp.StatusCode == http.StatusServiceUnavailable ||
+		resp.StatusCode == http.StatusInternalServerError ||
+		resp.StatusCode == http.StatusBadRequest {
+		healthRequest.Message = constants.HostUnreachableErrMsg
+		healthRequest.Status = backend.HealthStatusError
+
+		return healthRequest, nil
 	}
+
+	deviceData := models.DeviceData{} //nolint:exhaustivestruct
+
+	//todo remove this
+	ds.Logger.Info("The request was ", resp.Request.URL)
+	ds.Logger.Info("The status code was ", resp.Status)
+	resDump, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		ds.Logger.Error(err.Error())
+	}
+	ds.Logger.Info("HTTP Response in Datasource", resDump)
+
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		ds.Logger.Info("Error Unmarshalling healthcheck  => ", err.Error)
-	}
-	deviceData := models.DeviceData{}
-	err = json.Unmarshal(bodyText, &deviceData)
-	if err != nil {
-		return nil, err
-	}
-	if deviceData.Status == 200 {
-		status = backend.HealthStatusOk
-		message = "Authentication Success"
-	} else if deviceData.Status == 1401 {
-		status = backend.HealthStatusError
-		message = "" + deviceData.Errmsg
-	} else if deviceData.Status == 400 {
-		status = backend.HealthStatusError
-		message = "Invalid Token for Company or " + deviceData.Errmsg
-	} else {
-		status = backend.HealthStatusError
-		message = "" + deviceData.Errmsg
+		ds.Logger.Info("Error in ioutil.Readall => ", resp.Body)
+		healthRequest.Message = "Error in ioutil.Readall"
+		healthRequest.Status = backend.HealthStatusError
+
+		ds.Logger.Error(constants.UnmarshallingErrMsg, err.Error)
+		return healthRequest, nil //nolint:nilerr
 	}
 
-	return &backend.CheckHealthResult{
-		Status:  status,
-		Message: message,
-	}, nil
+	json.Unmarshal(bodyText, &deviceData)
+	//err = json.NewDecoder(bodyText).Decode(&deviceData)
+	if err != nil {
+		healthRequest.Message = constants.UnmarshallingErrMsg
+		healthRequest.Status = backend.HealthStatusError
+
+		ds.Logger.Error(constants.UnmarshallingErrMsg, err.Error)
+
+		return healthRequest, nil //nolint:nilerr
+	}
+
+	ds.Logger.Debug("The healthcheck healthStatus code is  => ", deviceData.Status)
+
+	if deviceData.Status == http.StatusOK {
+		healthRequest.Status = backend.HealthStatusOk
+		healthRequest.Message = constants.AuthSuccessMsg
+
+		return healthRequest, nil
+	}
+
+	healthRequest.Status = backend.HealthStatusError
+
+	if deviceData.Status == http.StatusBadRequest {
+		healthRequest.Message = constants.InvalidTokenErrMsg + deviceData.Errmsg
+		ds.Logger.Error("Invalid Token for Company or " + deviceData.Errmsg)
+	} else {
+		healthRequest.Message = constants.APIErrMsg + deviceData.Errmsg
+		ds.Logger.Error(constants.APIErrMsg, deviceData.Errmsg)
+	}
+
+	return healthRequest, nil
 }
 
-func (ds *LogicmonitorDataSource) validatePluginSettings(status backend.HealthStatus, message string) (backend.HealthStatus, string, *backend.CheckHealthResult, error, bool) {
+func (ds *LogicmonitorDataSource) validatePluginSettings(logger log.Logger) *backend.CheckHealthResult {
+	checkHealthResult := &backend.CheckHealthResult{} //nolint:exhaustivestruct
+	checkHealthResult.Status = backend.HealthStatusError
+
 	if ds.PluginSettings.Path == "" {
-		status = backend.HealthStatusError
-		message = "Company name not entered"
-		return 0, "", &backend.CheckHealthResult{
-			Status:  status,
-			Message: message,
-		}, nil, true
+		checkHealthResult.Message = constants.NoCompanyNameEnteredErrMsg
+		logger.Error(constants.NoCompanyNameEnteredErrMsg)
+
+		return checkHealthResult
 	}
 
 	if !ds.PluginSettings.IsLMV1Enabled && !ds.PluginSettings.IsBearerEnabled {
-		return 0, "", &backend.CheckHealthResult{
-			Status:  backend.HealthStatusError,
-			Message: "Please Authenticate to use the plugin",
-		}, nil, true
+		checkHealthResult.Message = constants.NoAuthenticationErrMsg
+		logger.Error(constants.NoAuthenticationErrMsg)
+
+		return checkHealthResult
 	}
 
-	if !ds.PluginSettings.IsBearerEnabled {
-		ds.AuthSettings.BearerToken = ""
-	} else {
-		if ds.AuthSettings.BearerToken == "" {
-			return 0, "", &backend.CheckHealthResult{
-				Status:  backend.HealthStatusError,
-				Message: "Please enter bearer token",
-			}, nil, true
-		}
+	if ds.PluginSettings.IsBearerEnabled && ds.AuthSettings.BearerToken == "" {
+		checkHealthResult.Message = constants.BearerTokenEmptyErrMsg
+		logger.Error(constants.BearerTokenEmptyErrMsg)
+
+		return checkHealthResult
 	}
 
 	if ds.PluginSettings.IsLMV1Enabled {
-		if ds.PluginSettings.AccessID == "" || ds.AuthSettings.AccessKey == "" {
-			status = backend.HealthStatusError
-			if ds.PluginSettings.AccessID == "" && ds.AuthSettings.AccessKey == "" {
-				message = "Enable Lmv1 authentication methods and try again"
-			}
-			if ds.AuthSettings.AccessKey == "" {
-				message = "Please enter Access Key"
-			}
-			if ds.PluginSettings.AccessID == "" {
-				message = "Please enter AccessId"
-			}
-			return 0, "", &backend.CheckHealthResult{
-				Status:  status,
-				Message: message,
-			}, nil, true
+		if ds.AuthSettings.AccessKey == "" {
+			checkHealthResult.Message = constants.AccessKeyEmptyErrMsg
+			logger.Error(constants.AccessKeyEmptyErrMsg)
+
+			return checkHealthResult
+		}
+
+		if ds.PluginSettings.AccessID == "" {
+			checkHealthResult.Message = constants.AccessIDEmptyErrMsg
+			logger.Error(constants.AccessIDEmptyErrMsg)
+
+			return checkHealthResult
 		}
 	}
-	return status, message, nil, nil, false
+
+	checkHealthResult.Status = backend.HealthStatusOk
+	checkHealthResult.Message = ""
+
+	return checkHealthResult
 }
 
-func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
-	response := backend.DataResponse{}
-	resp, err := httpClient.Get(ds.PluginSettings.AccessID, ds.AuthSettings.AccessKey, ds.AuthSettings.BearerToken,
-		req.Path, req.URL, ds.PluginSettings.Path, ds.PluginSettings.Version)
+func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error { //nolint:lll
+
+	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, req.Path, req.URL, ds.Logger)
 	if err != nil {
 		ds.Logger.Info(" Error from server => ", err)
-		return response.Error
+
+		return err
 	}
+
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		ds.Logger.Info(" Error reading response => ", resp.Body)
+
+		return err
 	}
-	return sender.Send(&backend.CallResourceResponse{
+
+	return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
 		Status: resp.StatusCode,
-		Body:   []byte(bodyText),
+		Body:   []byte(bodyText), //nolint:unconvert
 	})
 }
-
-// SubscribeStream is called when a client wants to connect to a stream. This callback
-// allows sending the first message.
-//func (ds *LogicmonitorDataSource) SubscribeStream(_ context.Context, req *backend.SubscribeStreamRequest) (*backend.SubscribeStreamResponse, error) {
-//	ds.Logger.Info("SubscribeStream called", "request", req)
-//
-//	status := backend.SubscribeStreamStatusPermissionDenied
-//	if req.Path == "stream" {
-//		// Allow subscribing only on expected path.
-//		status = backend.SubscribeStreamStatusOK
-//	}
-//	return &backend.SubscribeStreamResponse{
-//		Status: status,
-//	}, nil
-//}
-
-// RunStream is called once for any open channel.  Results are shared with everyone
-// subscribed to the same channel.
-//func (ds *LogicmonitorDataSource) RunStream(ctx context.Context, req *backend.RunStreamRequest, sender *backend.StreamSender) error {
-//	ds.Logger.Info("RunStream called", "request", req)
-//
-//	// Create the same data frame as for query data.
-//	frame := data.NewFrame("response")
-//
-//	// Add fields (matching the same schema used in QueryData).
-//	frame.Fields = append(frame.Fields,
-//		data.NewField("time", nil, make([]time.Time, 1)),
-//		data.NewField("values", nil, make([]int64, 1)),
-//	)
-//
-//	counter := 0
-//
-//	// Stream data frames periodically till stream closed by Grafana.
-//	for {
-//		select {
-//		case <-ctx.Done():
-//			ds.Logger.Info("Context done, finish streaming", "path", req.Path)
-//			return nil
-//		case <-time.After(time.Second):
-//			// Send new data periodically.
-//			frame.Fields[0].Set(0, time.Now())
-//			frame.Fields[1].Set(0, int64(10*(counter%2+1)))
-//
-//			counter++
-//
-//			err := sender.SendFrame(frame, data.IncludeAll)
-//			if err != nil {
-//				ds.Logger.Error("Error sending frame", "error", err)
-//				continue
-//			}
-//		}
-//	}
-//}
-//
-//// PublishStream is called when a client sends a message to the stream.
-//func (ds *LogicmonitorDataSource) PublishStream(_ context.Context, req *backend.PublishStreamRequest) (*backend.PublishStreamResponse, error) {
-//	ds.Logger.Info("PublishStream called", "request", req)
-//
-//	// Do not allow publishing at all.
-//	return &backend.PublishStreamResponse{
-//		Status: backend.PublishStreamStatusPermissionDenied,
-//	}, nil
-//}

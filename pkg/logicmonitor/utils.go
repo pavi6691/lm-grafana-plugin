@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func BuildFrame(dataPointSelected []models.DataPoint, rawdata models.Data) *data.Frame {
+func BuildFrame(dataPointSelected []models.DataPoint, rawData models.Data) *data.Frame {
 	// create data frame response.
 	frame := data.NewFrame(constants.Response)
 
@@ -23,26 +23,31 @@ func BuildFrame(dataPointSelected []models.DataPoint, rawdata models.Data) *data
 			data.NewField(element.Label, nil, []float64{}),
 		)
 	}
-	for i, values := range rawdata.Values {
+
+	for i, values := range rawData.Values {
 		vals := make([]interface{}, len(frame.Fields))
-		var idx int = 1
-		vals[0] = time.UnixMilli(rawdata.Time[i])
-		for j, dp := range rawdata.DataPoints {
+		var idx = 1
+		vals[0] = time.UnixMilli(rawData.Time[i])
+
+		for j, dp := range rawData.DataPoints {
+
 			for _, field := range frame.Fields {
 				if field.Name == dp {
-
 					if values[j] == constants.NoData {
 						vals[idx] = math.NaN()
 					} else {
 						vals[idx] = values[j]
 					}
 					idx++
+
 					break
 				}
 			}
 		}
+
 		frame.AppendRow(vals...)
 	}
+
 	return frame
 }
 

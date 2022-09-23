@@ -11,12 +11,12 @@ import (
 
 var cacheData = ttlcache.NewCache()
 
-var lastExecutedTime = ttlcache.NewCache()
+var lastExecutedTimeCache = ttlcache.NewCache()
 
 var timeRangeChanged = ttlcache.NewCache()
 
 func GetLastExecutedTime(UniqueId string) (interface{}, bool) {
-	return lastExecutedTime.Get(UniqueId)
+	return lastExecutedTimeCache.Get(UniqueId)
 }
 
 func GetTimeRangeChanged(UniqueId string) (interface{}, bool) {
@@ -32,7 +32,7 @@ func RawDataCount() int {
 }
 
 func Store(qm models.QueryModel, query backend.DataQuery, frame *data.Frame) {
-	cacheData.SetWithTTL(qm.UniqueID, frame, time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
-	lastExecutedTime.SetWithTTL(qm.UniqueID, time.Now().UnixMilli(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
-	timeRangeChanged.SetWithTTL(qm.UniqueID, query.TimeRange.Duration(), time.Duration(time.Duration(qm.CollectInterval+10)*time.Second))
+	cacheData.SetWithTTL(qm.UniqueID, frame, time.Duration(qm.CollectInterval+10)*time.Second)
+	lastExecutedTimeCache.SetWithTTL(qm.UniqueID, time.Now().UnixMilli(), time.Duration(qm.CollectInterval+10)*time.Second)
+	timeRangeChanged.SetWithTTL(qm.UniqueID, query.TimeRange.Duration(), time.Duration(qm.CollectInterval+10)*time.Second) //nolint:lll
 }
