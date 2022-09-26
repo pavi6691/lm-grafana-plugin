@@ -4,16 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpclient"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 	"io/ioutil"
+	"strconv"
 	"time"
 )
 
-func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, logger log.Logger, pluginContext backend.PluginContext, query backend.DataQuery) backend.DataResponse {
+func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, logger log.Logger,
+	pluginContext backend.PluginContext, query backend.DataQuery) backend.DataResponse {
 	response := backend.DataResponse{} //nolint:exhaustivestruct
 
 	// Unmarshal the JSON into our queryModel.
@@ -23,6 +26,10 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	if response.Error != nil || queryModel.DataPointSelected == nil {
 		return response
 	}
+
+	//Set the unique id
+	queryModel.UniqueID = getUniqueID(&queryModel, &query)
+	logger.Info("The UniqueID = " + queryModel.UniqueID)
 
 	lastExecutedTime, lastExecutedTimePresent := cache.GetLastExecutedTime(queryModel.UniqueID)
 	timeRangeChanged, timeRangeChangePresent := cache.GetTimeRangeChanged(queryModel.UniqueID)
@@ -51,15 +58,14 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 		return response
 	}
 
-	fullPath := BuildFullPath(&queryModel, &query)
-	resourcePath := BuildResourcePath(&queryModel)
+	fullPath := BuildURLReplacingQueryParams(constants.RawDataReq, &queryModel, &query)
 
-	logger.Info("The full path is = ", fullPath)
-	logger.Info("The resourcePath path is = ", resourcePath)
-	logger.Info("Calling API for query = ", queryModel)
-	logger.Info("Cache size = ", cache.RawDataCount())
+	//todo
+	logger.Debug("The full path is = ", fullPath)
+	logger.Debug("Calling API for query = ", queryModel)
+	logger.Debug("Cache size = ", cache.RawDataCount())
 
-	resp, err := httpclient.Get(pluginSettings, authSettings, resourcePath, fullPath, logger)
+	resp, err := httpclient.Get(pluginSettings, authSettings, fullPath, logger)
 	if err != nil {
 		response.Error = err
 		logger.Error(" Error from server => ", response.Error)
@@ -90,4 +96,9 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	cache.Store(queryModel, query, frame)
 
 	return response
+}
+
+func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery) string {
+	unixTruncateToMinute := UnixTruncateToMinute(query.TimeRange.From.Unix())
+	return strconv.FormatInt(queryModel.HdsSelected, 10) + queryModel.InstanceSelected[0].Value + strconv.FormatInt(unixTruncateToMinute, 10)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"net/http/httputil"
+	"strings"
 
 	//nolint:typecheck
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
@@ -16,19 +17,29 @@ import (
 	"time"
 )
 
-func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, resourcePath string, fullPath string, logger log.Logger) (*http.Response, error) { //nolint:lll
-	url := fmt.Sprintf(constants.RootUrl, pluginSettings.Path) + fullPath
+func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) (*http.Response, error) { //nolint:lll
+	newResp := &http.Response{} //nolint:exhaustivestruct
+	url := fmt.Sprintf(constants.RootUrl, pluginSettings.Path) + requestURL
 	client := &http.Client{} //nolint:exhaustivestruct
 
-	logger.Info("Hitting HTTP request => " + url)
+	logger.Debug("Hitting HTTP request => " + url)
 
-	httpRequest, err := http.NewRequest(constants.Get, url, nil)
+	httpRequest, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		logger.Info(" Error creating http request => ", err)
+		logger.Error(" Error creating http request => ", err)
+
+		return nil, err
 	}
 
+	resourcePath := strings.ReplaceAll(httpRequest.URL.Path, constants.SantabaRestPath, "")
+
+	// todo
+	logger.Debug("The resource path is ", resourcePath)
+	logger.Debug("The httpRequest.URL.Path is ", httpRequest.URL.Path)
+	logger.Debug("The full path is ", requestURL)
+
 	if pluginSettings.IsLMV1Enabled {
-		httpRequest.Header.Add(constants.Authorization, getLMv1(pluginSettings.AccessID, authSettings.AccessKey, "/"+resourcePath)) //nolint:lll
+		httpRequest.Header.Add(constants.Authorization, getLMv1(pluginSettings.AccessID, authSettings.AccessKey, resourcePath)) //nolint:lll
 	}
 
 	if pluginSettings.IsBearerEnabled {
@@ -37,33 +48,36 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 
 	httpRequest.Header.Add(constants.UserAgent, buildGrafanaUserAgent(pluginSettings))
 
-	if resourcePath == constants.AutoCompleteNames {
+	if resourcePath == constants.AutoCompleteNamesPath {
 		httpRequest.Header.Add(constants.XVersion, constants.XVersionValue3)
 	}
 
-	//todo remove this
+	//	//todo remove this
 	reqDump, err := httputil.DumpRequest(httpRequest, true)
 	if err != nil {
 		logger.Error(err.Error())
+		return nil, err
 	}
 
-	logger.Info("Hitting HTTP request with headers => "+string(reqDump), err)
+	logger.Debug("Hitting HTTP request with headers => "+string(reqDump), err)
 
-	resp, err := client.Do(httpRequest)
+	newResp, err = client.Do(httpRequest)
 	if err != nil {
-		logger.Info(" Error executing => "+url, err)
+		logger.Error(" Error executing => "+url, err)
+		return nil, err
 	}
-	defer resp.Body.Close()
+	defer newResp.Body.Close()
 
-	//todo remove this
-	resDump, err := httputil.DumpResponse(resp, true)
+	//	todo remove this
+	resDump, err := httputil.DumpResponse(newResp, true)
 	if err != nil {
 		logger.Error(err.Error())
+		return nil, err
 	}
 
 	logger.Info("HTTP response => "+string(resDump), err)
 
-	return resp, err
+	return newResp, err
 }
 
 func buildBearerToken(authSettings *models.AuthSettings) string {
@@ -76,7 +90,7 @@ func buildGrafanaUserAgent(pluginSettings *models.PluginSettings) string {
 
 func getLMv1(accessID, accessKey, resourcePath string) string {
 	epoch := time.Now().UnixMilli()
-	getEpoch := fmt.Sprintf("%s%d", "GET", epoch)
+	getEpoch := fmt.Sprintf("%s%d", http.MethodGet, epoch)
 	data := getEpoch + resourcePath
 	h := hmac.New(sha256.New, []byte(accessKey))
 	h.Write([]byte(data))

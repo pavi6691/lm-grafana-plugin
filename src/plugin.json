@@ -6,56 +6,10 @@
   "id": "logicmonitor-datasource",
   "metrics": true,
   "backend": true,
-  "routes": [
-    {
-      "path": "device/devices",
-      "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/device/devices",
-      "headers": [
-        {
-          "name": "Authorization",
-          "content": "Bearer {{ .SecureJsonData.bearer_token }}"
-        }
-      ]
-    },
-    {
-      "path": "device/groups",
-      "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/device/groups/",
-      "headers": [
-        {
-          "name": "Authorization",
-          "content": "Bearer {{ .SecureJsonData.bearer_token }}"
-        }
-      ]
-    },
-    {
-      "path": "autocomplete/names",
-      "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/autocomplete/names",
-      "headers": [
-        {
-          "name": "Authorization",
-          "content": "Bearer {{ .SecureJsonData.bearer_token }}"
-        },
-        {
-          "name": "x-version",
-          "content": "3"
-        }
-      ]
-    },
-    {
-      "path": "setting/datasources",
-      "url": "https://{{ .JsonData.path }}.logicmonitor.com/santaba/rest/setting/datasources",
-      "headers": [
-        {
-          "name": "Authorization",
-          "content": "Bearer {{ .SecureJsonData.bearer_token }}"
-        }
-      ]
-    }
-  ],
   "info": {
     "description": "LogicMonitor plugin for Grafana",
     "author": {
-      "name": "https://www.logicmonitor.com",
+      "name": "LogicMonitor",
       "url": "http://www.logicmonitor.com"
     },
     "keywords": [

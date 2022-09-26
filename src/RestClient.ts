@@ -1,5 +1,6 @@
 import { getBackendSrv } from "@grafana/runtime";
 import { lastValueFrom } from "rxjs";
+import { MyQuery } from "types";
 
 export class RestClient {
 
@@ -12,8 +13,8 @@ export class RestClient {
           });
     }
 
-    async httpGet(urll: String, dsid: number, dsURL: string, isBearerEnabled: boolean): Promise<any> {
-        const response = await this.fetch(urll,dsid,dsURL,isBearerEnabled);
+    async httpGet(urll: String, dsid: number, dsURL: string, isBearerEnabled: boolean, query: MyQuery): Promise<any> {
+        const response = await this.fetch(urll,dsid,dsURL,isBearerEnabled,query);
         if(response.data && response.data.status && response.data.status !== 200) { // sometime there will be errors with http status 200, handle it from response body
           alert(response.data.errmsg)
           return {
@@ -24,15 +25,12 @@ export class RestClient {
         return response;
     }
 
-    async fetch(urll: String, dsid: number, dsURL: string, isBearerEnabled: boolean): Promise<any> {
-        if(isBearerEnabled === true) {
-            urll = dsURL + urll;
-        } else {
-            urll = '/api/datasources/' + dsid + '/resources' + urll;
-        }
+    async fetch(urll: String, dsid: number, dsURL: string, isBearerEnabled: boolean,query: MyQuery): Promise<any> {
+        urll = '/api/datasources/' + dsid + '/resources' + urll;
         const observable =  getBackendSrv().fetch({
             url: '' + urll,
-            method: 'GET',
+            method: 'POST',
+            data: JSON.stringify(query)
           })
         return await lastValueFrom(observable).catch(e => {
             return this.getErrorMessage(e);
@@ -40,8 +38,10 @@ export class RestClient {
     }
 
     getErrorMessage(e: any): any {
-        if(e.status === 502 || e.status === 500) { // 502 from proxy 500 from backend) {
-            e = e.data.message + " : Host not reachable / invalid company name configured";
+        if( e.status === 500) {
+            e = e.data.message
+        } else if(e.status === 502) { // 502 from proxy 500 from backend) {
+            e =  "Host not reachable / invalid company name configured";
         } else if(e.status === 400 ) {
             e = 'Invalid Token for Comapny or ' + e.data.message; 
         } else if(e.data.error) {

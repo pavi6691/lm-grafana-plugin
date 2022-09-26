@@ -1,16 +1,11 @@
 package models
 
-type Host struct {
+type LabelStringValue struct {
 	Label string `json:"label"`
 	Value string `json:"value"`
 }
 
-type Instance struct {
-	Label string `json:"label"`
-	Value string `json:"value"`
-}
-
-type DataPoint struct {
+type LabelIntValue struct {
 	Label string `json:"label"`
 	Value int64  `json:"value"`
 }
@@ -33,14 +28,17 @@ type RawData struct {
 }
 
 type QueryModel struct {
-	HostSelected       Host        `json:"hostSelected"`
-	HdsSelected        int64       `json:"hdsSelected"`
-	DataSourceSelected DataSource  `json:"dataSourceSelected"`
-	InstanceSelected   Instance    `json:"instanceSelected"`
-	DataPointSelected  []DataPoint `json:"dataPointSelected"`
-	WithStreaming      bool        `json:"withStreaming"`
-	CollectInterval    int64       `json:"collectInterval"`
-	UniqueID           string      `json:"uniqueId"`
+	TypeSelected       string             `json:"typeSelected"`
+	GroupSelected      LabelIntValue      `json:"groupSelected"`
+	HostSelected       LabelStringValue   `json:"hostSelected"`
+	HdsSelected        int64              `json:"hdsSelected"`
+	DataSourceSelected DataSource         `json:"dataSourceSelected"`
+	InstanceSelected   []LabelStringValue `json:"instanceSelected"`
+	InstanceSearch     string             `json:"instanceSearch"`
+	DataPointSelected  []LabelIntValue    `json:"dataPointSelected"`
+	WithStreaming      bool               `json:"withStreaming"`
+	CollectInterval    int64              `json:"collectInterval"`
+	UniqueID           string             `json:"uniqueId"`
 }
 
 type DeviceData struct {

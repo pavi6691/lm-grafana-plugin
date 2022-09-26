@@ -106,6 +106,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const { options } = this.props;
     const { jsonData, secureJsonFields } = options;
     const secureJsonData = (options.secureJsonData || {}) as MySecureJsonData;
+    jsonData.isLMV1Enabled = true
     return (
       <div className="gf-form-group">
         <div className="gf-form" style={{ display: 'flex', marginBottom:50 }}>
@@ -124,21 +125,21 @@ export class ConfigEditor extends PureComponent<Props, State> {
           </div>
         </div>
         <div className="gf-form">
-        <div style={{ display: 'flex', marginBottom:2 }}>
-          <InlineLabel aria-disabled={true} tooltip="Currently disabled to mandate LMv1 authentication" width={20}>Bearer token</InlineLabel>
+        {/* <div style={{ display: 'flex', marginBottom:2 }}>
+          <InlineLabel aria-disabled={true} width={20}>Bearer token</InlineLabel>
           <InlineSwitch
-            disabled={true}
             defaultChecked={jsonData.isBearerEnabled}
             checked={jsonData.isBearerEnabled}
             showLabel={true}
             onChange={this.onBearerChange}
           />
-        </div>
+        </div> */}
         </div>
         <div className="gf-form">
         <div style={{ display: 'flex', marginBottom:40 }}>
           <InlineLabel width={20}>LMv1 token</InlineLabel>
           <InlineSwitch
+            disabled={true}
             defaultChecked={jsonData.isLMV1Enabled}
             checked={jsonData.isLMV1Enabled}
             showLabel={true}

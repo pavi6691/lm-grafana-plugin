@@ -12,7 +12,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"io/ioutil"
 	"net/http"
-	"net/http/httputil"
 )
 
 var (
@@ -67,7 +66,6 @@ func (ds *LogicmonitorDataSource) Dispose() {
 func (ds *LogicmonitorDataSource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) { //nolint:lll
 	// create response struct
 	response := backend.NewQueryDataResponse()
-
 	// loop over queries and execute them individually.
 	for _, q := range req.Queries {
 		res := logicmonitor.Query(ctx, ds.PluginSettings, ds.AuthSettings, ds.Logger, req.PluginContext, q)
@@ -90,7 +88,15 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 		return healthRequest, nil
 	}
 
-	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, constants.DeviceDevicesPath, constants.DevicesSizeOnePath, ds.Logger) //nolint:lll
+	requestURL := logicmonitor.BuildURLReplacingQueryParams(constants.HealthCheckReq, nil, nil)
+	if requestURL == "" {
+		healthRequest.Message = constants.HealthAPIURLErrMsg
+		healthRequest.Status = backend.HealthStatusError
+
+		return healthRequest, nil
+	}
+
+	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger) //nolint:bodyclose,lll
 	if err != nil {
 		healthRequest.Message = constants.HealthAPIErrMsg
 		healthRequest.Status = backend.HealthStatusError
@@ -107,41 +113,11 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 		return healthRequest, nil
 	}
 
-	deviceData := models.DeviceData{} //nolint:exhaustivestruct
+	// Not caching any error as we dont want the data json
+	deviceData := models.DeviceData{}              //nolint:exhaustivestruct
+	json.NewDecoder(resp.Body).Decode(&deviceData) //nolint:errcheck
 
-	//todo remove this
-	ds.Logger.Info("The request was ", resp.Request.URL)
-	ds.Logger.Info("The status code was ", resp.Status)
-	resDump, err := httputil.DumpResponse(resp, true)
-	if err != nil {
-		ds.Logger.Error(err.Error())
-	}
-	ds.Logger.Info("HTTP Response in Datasource", resDump)
-
-	bodyText, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		ds.Logger.Info("Error in ioutil.Readall => ", resp.Body)
-		healthRequest.Message = "Error in ioutil.Readall"
-		healthRequest.Status = backend.HealthStatusError
-
-		ds.Logger.Error(constants.UnmarshallingErrMsg, err.Error)
-		return healthRequest, nil //nolint:nilerr
-	}
-
-	json.Unmarshal(bodyText, &deviceData)
-	//err = json.NewDecoder(bodyText).Decode(&deviceData)
-	if err != nil {
-		healthRequest.Message = constants.UnmarshallingErrMsg
-		healthRequest.Status = backend.HealthStatusError
-
-		ds.Logger.Error(constants.UnmarshallingErrMsg, err.Error)
-
-		return healthRequest, nil //nolint:nilerr
-	}
-
-	ds.Logger.Debug("The healthcheck healthStatus code is  => ", deviceData.Status)
-
-	if deviceData.Status == http.StatusOK {
+	if resp.StatusCode == http.StatusOK {
 		healthRequest.Status = backend.HealthStatusOk
 		healthRequest.Message = constants.AuthSuccessMsg
 
@@ -150,11 +126,11 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 
 	healthRequest.Status = backend.HealthStatusError
 
-	if deviceData.Status == http.StatusBadRequest {
+	if resp.StatusCode == http.StatusBadRequest {
 		healthRequest.Message = constants.InvalidTokenErrMsg + deviceData.Errmsg
 		ds.Logger.Error("Invalid Token for Company or " + deviceData.Errmsg)
 	} else {
-		healthRequest.Message = constants.APIErrMsg + deviceData.Errmsg
+		healthRequest.Message = constants.APIErrMsg + string(deviceData.Status)
 		ds.Logger.Error(constants.APIErrMsg, deviceData.Errmsg)
 	}
 
@@ -210,22 +186,49 @@ func (ds *LogicmonitorDataSource) validatePluginSettings(logger log.Logger) *bac
 
 func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error { //nolint:lll
 
-	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, req.Path, req.URL, ds.Logger)
+	var qm models.QueryModel
+	err := json.Unmarshal(req.Body, &qm)
+	if err != nil {
+		log.DefaultLogger.Error("Error parsing ", err.Error())
+
+		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
+			Status: http.StatusInternalServerError,
+			Body:   []byte(err.Error()),
+		})
+	}
+
+	requestURL := logicmonitor.BuildURLReplacingQueryParams(req.Path, &qm, nil)
+	if requestURL == "" {
+		log.DefaultLogger.Error(constants.URLConfigurationErrMsg)
+
+		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
+			Status: http.StatusInternalServerError,
+			Body:   []byte(constants.URLConfigurationErrMsg),
+		})
+	}
+
+	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
 	if err != nil {
 		ds.Logger.Info(" Error from server => ", err)
 
-		return err
+		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
+			Status: http.StatusInternalServerError,
+			Body:   []byte(err.Error()),
+		})
 	}
 
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		ds.Logger.Info(" Error reading response => ", resp.Body)
 
-		return err
+		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
+			Status: http.StatusInternalServerError,
+			Body:   []byte(err.Error()),
+		})
 	}
 
-	return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
+	return sender.Send(&backend.CallResourceResponse{
 		Status: resp.StatusCode,
-		Body:   []byte(bodyText), //nolint:unconvert
+		Body:   bodyText, //nolint:unconvert
 	})
 }
