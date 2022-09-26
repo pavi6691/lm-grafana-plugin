@@ -52,8 +52,9 @@ const (
 	DataPointReq            = "DataPointReq"
 
 	// Below constants are not used in Frontend
-	RawDataReq     = "RawDataReq"
-	HealthCheckReq = "HealthCheckReq"
+	RawDataReq              = "RawDataReq"
+	RawDataMultiInstanceReq = "RawDataMultiInstanceReq"
+	HealthCheckReq          = "HealthCheckReq"
 )
 
 const (
@@ -88,4 +89,6 @@ const (
 	HealthCheckURL = "device/devices?size=1"
 
 	RawDataURL = "device/devices/%s/devicedatasources/%d/instances/%s/data?start=%d&end=%d"
+
+	RawDataMultiInstanceURL = ""
 )

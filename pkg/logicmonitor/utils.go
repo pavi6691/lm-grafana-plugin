@@ -91,6 +91,9 @@ func BuildURLReplacingQueryParams(request string, qm *models.QueryModel, query *
 	case RawDataReq:
 		return fmt.Sprintf(RawDataURL, qm.HostSelected.Value, qm.HdsSelected,
 			qm.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix())
+	case RawDataMultiInstanceReq:
+		return fmt.Sprintf(RawDataMultiInstanceReq, qm.HostSelected.Value, qm.HdsSelected,
+			qm.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix())
 	case AllHostReq:
 		return AllHostURL
 	case AllInstanceReq:
