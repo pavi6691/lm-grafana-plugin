@@ -119,10 +119,7 @@ func getDataPointNamesDelimByComma(lv []models.LabelIntValue) string {
 	return result
 }
 
-func UnixTruncateToNearestMinute(inputTime time.Time, intervalMin int64) time.Duration {
-	t := time.Now().UnixMilli()
-
-	timeDuration, _ := time.ParseDuration(inputTime.String())
-	inputTimeTruncated := timeDuration.Truncate(time.Duration(intervalMin) * time.Minute)
-	return inputTimeTruncated
+func UnixTruncateToNearestMinute(inputTime time.Time, intervalMin int64) int64 {
+	inputTimeTruncated := inputTime.Truncate(time.Duration(intervalMin) * time.Minute)
+	return inputTimeTruncated.Unix()
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	"io/ioutil"
+	"strconv"
 	"time"
 
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
@@ -132,7 +133,7 @@ func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, plugin
 	lastToTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.To, queryModel.CollectInterval)
 	return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
 		queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
-		lastFromTimeUnixTruncated.String() + lastToTimeUnixTruncated.String()
+		strconv.FormatInt(lastFromTimeUnixTruncated, 10) + strconv.FormatInt(lastToTimeUnixTruncated, 10)
 }
 
 func checkIfCallFromQueryEditor(queryModel *models.QueryModel) bool {

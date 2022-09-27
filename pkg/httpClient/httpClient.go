@@ -64,7 +64,8 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 		logger.Error(" Error executing => "+url, err)
 		return nil, err
 	}
-	// defer newResp.Body.Close()
+	// todo high priority
+	//defer newResp.Body.Close()
 
 	//	todo remove this
 	// resDump, err := httputil.DumpResponse(newResp, true)
