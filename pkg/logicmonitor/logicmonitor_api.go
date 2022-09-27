@@ -43,7 +43,7 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	}
 
 	//Gets Data from local cache for the selected query.
-	if !ifCallFromQueryEditor {
+	if !ifCallFromQueryEditor { // currently data is present in frameCache and query is updated, it should not refer frameCache
 		response, err = getFromFrameCache(uniqueID, logger)
 		if err == nil {
 			return response
@@ -62,6 +62,8 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	// Add data to cache
 	if ifCallFromQueryEditor {
 		cache.StoreQueryEditorTempData(uniqueID, queryModel.CollectInterval, rawData.Data)
+		// timerange passed ds interval, but still not last queryupdated time is. after few seconds if queryupdated timestsamp is passed the ds interval
+		cache.StoreFrame(uniqueID, queryModel.CollectInterval, response.Frames)
 	} else {
 		cache.StoreFrame(uniqueID, queryModel.CollectInterval, response.Frames)
 	}
