@@ -85,9 +85,9 @@ const (
 
 	HealthCheckURL = "device/devices?size=1"
 
-	RawDataSingleInstanceURL = "device/devices/%s/devicedatasources/%d/instances/%s/data?start=%d&end=%d&datapoints=%s"
+	RawDataSingleInstanceURL = "device/devices/%s/devicedatasources/%d/instances/%s/data?start=%d&end=%d"
 
-	RawDataMultiInstanceURL = "device/devices/%s/devicedatasources/%d/data?start=%d&end=%d&datapoints=%s"
+	RawDataMultiInstanceURL = "device/devices/%s/devicedatasources/%d/data?start=%d&end=%d"
 
 	// -------- If autocomplete is disabled below APIs are used
 	// AllHostURL = Get All Hosts

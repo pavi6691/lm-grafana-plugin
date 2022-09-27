@@ -91,11 +91,10 @@ func BuildURLReplacingQueryParams(request string, qm *models.QueryModel, query *
 		return HealthCheckURL
 	case RawDataSingleInstaceReq:
 		return fmt.Sprintf(RawDataSingleInstanceURL, qm.HostSelected.Value, qm.HdsSelected,
-			qm.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(),
-			getDataPointNamesDelimByComma(qm.DataPointSelected))
+			qm.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix())
 	case RawDataMultiInstanceReq:
 		return fmt.Sprintf(RawDataMultiInstanceURL, qm.HostSelected.Value, qm.HdsSelected, query.TimeRange.From.Unix(),
-			query.TimeRange.To.Unix(), getDataPointNamesDelimByComma(qm.DataPointSelected))
+			query.TimeRange.To.Unix())
 	case AllHostReq:
 		return AllHostURL
 	case AllInstanceReq:
@@ -103,20 +102,6 @@ func BuildURLReplacingQueryParams(request string, qm *models.QueryModel, query *
 	default:
 		return constants.RequestNotValid
 	}
-}
-
-func getDataPointNamesDelimByComma(lv []models.LabelIntValue) string {
-	var result string
-
-	for i, labelIntValue := range lv {
-		if i == 0 {
-			result = labelIntValue.Label
-		} else {
-			result = result + "," + labelIntValue.Label
-		}
-	}
-
-	return result
 }
 
 func UnixTruncateToNearestMinute(inputTime time.Time, intervalMin int64) int64 {
