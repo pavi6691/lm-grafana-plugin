@@ -7,28 +7,22 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
-	"net/http/httputil"
-	"strings"
-
-	//nolint:typecheck
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"net/http"
+	"strings"
 	"time"
 )
 
 func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) (*http.Response, error) { //nolint:lll
-	newResp := &http.Response{} //nolint:exhaustivestruct
-	url := fmt.Sprintf(constants.RootUrl, pluginSettings.Path) + requestURL
+	url := fmt.Sprintf(constants.RootURL, pluginSettings.Path) + requestURL
 	client := &http.Client{} //nolint:exhaustivestruct
-
-	logger.Debug("Hitting HTTP request => " + url)
 
 	httpRequest, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		logger.Error(" Error creating http request => ", err)
 
-		return nil, err
+		return nil, err //nolint:wrapcheck
 	}
 
 	resourcePath := strings.ReplaceAll(httpRequest.URL.Path, constants.SantabaRestPath, "")
@@ -53,31 +47,33 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	}
 
 	//	//todo remove this
-	reqDump, err := httputil.DumpRequest(httpRequest, true)
-	if err != nil {
-		logger.Error(err.Error())
-		return nil, err
-	}
+	// reqDump, err := httputil.DumpRequest(httpRequest, true)
+	// if err != nil {
+	// 	logger.Error(err.Error())
+	// 	return nil, err
+	// }
 
-	logger.Debug("Hitting HTTP request with headers => "+string(reqDump), err)
+	// logger.Info("Hitting HTTP request with headers => ", string(reqDump), err)
 
-	newResp, err = client.Do(httpRequest)
+	newResp, err := client.Do(httpRequest)
 	if err != nil {
 		logger.Error(" Error executing => "+url, err)
+
 		return nil, err
 	}
-	defer newResp.Body.Close()
+
+	// todo high priority
 
 	//	todo remove this
-	resDump, err := httputil.DumpResponse(newResp, true)
-	if err != nil {
-		logger.Error(err.Error())
-		return nil, err
-	}
+	// resDump, err := httputil.DumpResponse(newResp, true)
+	// if err != nil {
+	// 	logger.Error(err.Error())
+	// 	return nil, err
+	// }
 
-	logger.Info("HTTP response => "+string(resDump), err)
+	// logger.Info("HTTP response => "+string(resDump), err)
 
-	return newResp, err
+	return newResp, err //nolint:wrapcheck
 }
 
 func buildBearerToken(authSettings *models.AuthSettings) string {

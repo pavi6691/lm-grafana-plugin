@@ -1,8 +1,11 @@
-package plugin
+package datasource
 
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpclient"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/logicmonitor"
@@ -10,8 +13,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
-	"io/ioutil"
-	"net/http"
 )
 
 var (
@@ -96,7 +97,7 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 		return healthRequest, nil
 	}
 
-	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger) //nolint:bodyclose,lll
+	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
 	if err != nil {
 		healthRequest.Message = constants.HealthAPIErrMsg
 		healthRequest.Status = backend.HealthStatusError
@@ -114,8 +115,10 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 	}
 
 	// Not caching any error as we dont want the data json
-	deviceData := models.DeviceData{}              //nolint:exhaustivestruct
+	deviceData := models.DeviceData{} //nolint:exhaustivestruct
+
 	json.NewDecoder(resp.Body).Decode(&deviceData) //nolint:errcheck
+	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
 		healthRequest.Status = backend.HealthStatusOk
@@ -185,23 +188,23 @@ func (ds *LogicmonitorDataSource) validatePluginSettings(logger log.Logger) *bac
 }
 
 func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error { //nolint:lll
+	var queryModel models.QueryModel
 
-	var qm models.QueryModel
-	err := json.Unmarshal(req.Body, &qm)
+	err := json.Unmarshal(req.Body, &queryModel)
 	if err != nil {
-		log.DefaultLogger.Error("Error parsing ", err.Error())
+		ds.Logger.Error("Error parsing ", err.Error())
 
-		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
+		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
 			Body:   []byte(err.Error()),
 		})
 	}
 
-	requestURL := logicmonitor.BuildURLReplacingQueryParams(req.Path, &qm, nil)
+	requestURL := logicmonitor.BuildURLReplacingQueryParams(req.Path, &queryModel, nil)
 	if requestURL == "" {
-		log.DefaultLogger.Error(constants.URLConfigurationErrMsg)
+		ds.Logger.Error(constants.URLConfigurationErrMsg)
 
-		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
+		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
 			Body:   []byte(constants.URLConfigurationErrMsg),
 		})
@@ -211,7 +214,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 	if err != nil {
 		ds.Logger.Info(" Error from server => ", err)
 
-		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
+		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
 			Body:   []byte(err.Error()),
 		})
@@ -219,15 +222,15 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		ds.Logger.Info(" Error reading response => ", resp.Body)
-
-		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
+		ds.Logger.Info(" Error reading response => ", err)
+		return sender.Send(&backend.CallResourceResponse{ //nolint:wsl,exhaustivestruct
 			Status: http.StatusInternalServerError,
 			Body:   []byte(err.Error()),
 		})
 	}
+	defer resp.Body.Close()
 
-	return sender.Send(&backend.CallResourceResponse{
+	return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 		Status: resp.StatusCode,
 		Body:   bodyText, //nolint:unconvert
 	})

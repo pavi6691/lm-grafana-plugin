@@ -2,38 +2,61 @@ package logicmonitor
 
 import (
 	"fmt"
+	"math"
+	"net/url"
+	"strings"
+	"time"
+
 	. "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
-	"math"
-	"net/url"
-	"time"
 )
 
-func BuildFrame(dataPointSelected []models.LabelIntValue, rawData models.Data) *data.Frame {
-	// create data frame response.
-	frame := data.NewFrame(Response)
+// BuildFrameFromMultiInstance = build frames for response with multi instances ref @MultiInstanceDataUrl
+func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.MultiInstanceData) backend.DataResponse {
+	response := backend.DataResponse{} //nolint:exhaustivestruct
 
+	for _, instance := range queryModel.InstanceSelected {
+		key := instance.Label
+
+		_, ok := data.Instances[data.DataSourceName+string(InstantAndDpDelim)+instance.Label]
+		if ok {
+			key = data.DataSourceName + string(InstantAndDpDelim) + instance.Label
+		}
+
+		dataFrame := buildFrame(instance.Label, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
+		// add the frames to the response.
+		response.Frames = append(response.Frames, dataFrame)
+	}
+
+	return response
+}
+
+// build frames for given datapoints, values and time
+func buildFrame(instanceName string, dataPointSelected []models.LabelIntValue, dataPoints []string, Values [][]interface{}, Time []int64) *data.Frame {
+	// create data frame response.
+	frame := data.NewFrame(ResponseStr)
+
+	// add fields
 	frame.Fields = append(frame.Fields,
-		data.NewField(Time, nil, []time.Time{}),
+		data.NewField(TimeStr, nil, []time.Time{}),
 	)
 
-	for _, element := range dataPointSelected {
+	for _, datapoint := range dataPointSelected {
 		frame.Fields = append(frame.Fields,
-			data.NewField(element.Label, nil, []float64{}),
+			data.NewField(instanceName+string(InstantAndDpDelim)+datapoint.Label, nil, []float64{}),
 		)
 	}
 
-	for i, values := range rawData.Values {
+	for i, values := range Values {
 		vals := make([]interface{}, len(frame.Fields))
-
 		var idx = 1
-		vals[0] = time.UnixMilli(rawData.Time[i])
+		vals[0] = time.UnixMilli(Time[i])
 
-		for j, dp := range rawData.DataPoints {
+		for j, dp := range dataPoints {
 			for _, field := range frame.Fields {
-				if field.Name == dp {
+				if field.Name[strings.IndexByte(field.Name, InstantAndDpDelim)+1:] == dp {
 					if values[j] == NoData {
 						vals[idx] = math.NaN()
 					} else {
@@ -52,22 +75,7 @@ func BuildFrame(dataPointSelected []models.LabelIntValue, rawData models.Data) *
 	return frame
 }
 
-//todo
-//func BuildRawDataPath(queryModel *models.QueryModel, query *backend.DataQuery) string {
-//	return fmt.Sprintf(RawDataURL, queryModel.HostSelected.Value, queryModel.HdsSelected,
-//		queryModel.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix())
-//}
-
-//func BuildResourcePath(queryModel *models.QueryModel) string {
-//	return fmt.Sprintf(constants.RawDataResourcePath, queryModel.HostSelected.Value, queryModel.HdsSelected,
-//		queryModel.InstanceSelected.Value)
-//}
-
-func UnixTruncateToMinute(unixTime int64) int64 {
-	t := time.Unix(unixTime, 0)
-	return t.Truncate(time.Minute).Unix()
-}
-
+//nolint:cyclop
 func BuildURLReplacingQueryParams(request string, qm *models.QueryModel, query *backend.DataQuery) string {
 	switch request {
 	case AutoCompleteGroupReq:
@@ -88,18 +96,23 @@ func BuildURLReplacingQueryParams(request string, qm *models.QueryModel, query *
 		return fmt.Sprintf(DataPointURL, qm.DataSourceSelected.Ds)
 	case HealthCheckReq:
 		return HealthCheckURL
-	case RawDataReq:
-		return fmt.Sprintf(RawDataURL, qm.HostSelected.Value, qm.HdsSelected,
+	case RawDataSingleInstaceReq:
+		return fmt.Sprintf(RawDataSingleInstanceURL, qm.HostSelected.Value, qm.HdsSelected,
 			qm.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix())
 	case RawDataMultiInstanceReq:
-		return fmt.Sprintf(RawDataMultiInstanceReq, qm.HostSelected.Value, qm.HdsSelected,
-			qm.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix())
+		return fmt.Sprintf(RawDataMultiInstanceURL, qm.HostSelected.Value, qm.HdsSelected, query.TimeRange.From.Unix(),
+			query.TimeRange.To.Unix())
 	case AllHostReq:
 		return AllHostURL
 	case AllInstanceReq:
 		return fmt.Sprintf(AllInstanceURL, qm.HostSelected.Value, qm.HdsSelected)
 	default:
-
-		return ""
+		return RequestNotValidStr
 	}
+}
+
+func UnixTruncateToNearestMinute(inputTime time.Time, intervalMin int64) int64 {
+	inputTimeTruncated := inputTime.Truncate(time.Duration(intervalMin) * time.Second)
+
+	return inputTimeTruncated.Unix()
 }
