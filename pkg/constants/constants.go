@@ -1,7 +1,7 @@
 package constants
 
 const (
-	RootUrl               = "https://%s.logicmonitor.com/santaba/rest/"
+	RootURL               = "https://%s.logicmonitor.com/santaba/rest/"
 	SantabaRestPath       = "/santaba/rest"
 	AutoCompleteNamesPath = "/autocomplete/names"
 )
@@ -12,10 +12,10 @@ const (
 )
 
 const (
-	NoData          = "No Data"
-	Response        = "response"
-	Time            = "time"
-	RequestNotValid = "Request not valid"
+	NoData             = "No Data"
+	ResponseStr        = "response"
+	TimeStr            = "time"
+	RequestNotValidStr = "Request not valid"
 )
 
 const (
@@ -43,7 +43,7 @@ const (
 	AuthSuccessMsg                  = "Authentication Success"
 )
 
-// These constants are from PathEndpoints.ts
+// These constants are from PathEndpoints.ts.
 const (
 	AllInstanceReq          = "AllInstanceReq"
 	AllHostReq              = "AllHostReq"
@@ -54,23 +54,23 @@ const (
 	DataSourceReq           = "DataSourceReq"
 	DataPointReq            = "DataPointReq"
 
-	// Below constants are not used in Frontend
+	// RawDataSingleInstaceReq Below constants are not used in Frontend.
 	RawDataSingleInstaceReq = "RawDataReq"
 	RawDataMultiInstanceReq = "RawDataMultiInstanceReq"
 	HealthCheckReq          = "HealthCheckReq"
 )
 
 const (
-	// AutoCompleteGroupUrl = Groups, gets both device and service
+	// AutoCompleteGroupURL AutoCompleteGroupUrl = Groups, gets both device and service.
 	AutoCompleteGroupURL = "autocomplete/names?queryToken=display&filterFlag=ImmediateChild&size=10&_=%d&type=hostChain&query=%s&parentsFilters=[]" //nolint:lll
 
-	// GroupExtraFilters = Groups, gets either service / devices
+	// GroupExtraFilters Groups, gets either service / devices.
 	GroupExtraFilters = `{"AND":[{"OR":[{"name":"groupType","value":"%s","op":":"},{"name":"id","value":1,"op":":"}]},
 								{"name":"userPermission","value":"write","op":":"}, {"OR":[{"name":"fullPath","value":"%s","op":"~"},
 								{"name":"name","value":"%s","op":"~"}]}]}`
 	ServiceOrDeviceGroupURL = "device/groups?fields=id,fullPath,name&sort=fullPath&size=10&_=%d&extraFilters="
 
-	// HostParentFilters  = Devices
+	// HostParentFilters  = Devices.
 	HostParentFilters    = `[{"filter":"%s","exclude":false,"token":"fullname","matchFilterAsGlob":true}]`
 	AutoCompleteHostsURL = `autocomplete/names?queryToken=display&needIdPrefix=true&size=10&_=%d&type=hostChain&query=%s&parentsFilters=` //nolint:lll
 
@@ -80,7 +80,7 @@ const (
 
 	AutoCompleteInstanceURL = `autocomplete/names?queryToken=shortname&needIdPrefix=true&size=10&_=%d&type=hostDsChain&query=%s&parentsFilters=` //nolint:lll
 
-	// DataPointURL DataPoints
+	// DataPointURL DataPoints.
 	DataPointURL = "setting/datasources/%d?format=json&fields=dataPoints,collectInterval"
 
 	HealthCheckURL = "device/devices?size=1"
@@ -89,11 +89,10 @@ const (
 
 	RawDataMultiInstanceURL = "device/devices/%s/devicedatasources/%d/data?start=%d&end=%d"
 
-	// -------- If autocomplete is disabled below APIs are used
-	// AllHostURL = Get All Hosts
+	// AllHostURL = Get All Hosts.
 	AllHostURL = "device/devices?format=json&fields=id,displayName&size=-1"
 
-	// AllInstanceURL = Get All Instances by hostId and Host Datasource Id
+	// AllInstanceURL = Get All Instances by hostId and Host Datasource Id.
 	AllInstanceURL = "device/devices/%s/devicedatasources/%d/instances?format=json&fields=id,name&size=-1"
 )
 

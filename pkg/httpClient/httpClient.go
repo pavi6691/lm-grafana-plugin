@@ -6,27 +6,23 @@ import (
 	b64 "encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"strings"
-
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
-
-	//nolint:typecheck
-	"net/http"
-	"time"
-
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
+	"net/http"
+	"strings"
+	"time"
 )
 
 func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) (*http.Response, error) { //nolint:lll
-	url := fmt.Sprintf(constants.RootUrl, pluginSettings.Path) + requestURL
+	url := fmt.Sprintf(constants.RootURL, pluginSettings.Path) + requestURL
 	client := &http.Client{} //nolint:exhaustivestruct
 
 	httpRequest, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		logger.Error(" Error creating http request => ", err)
 
-		return nil, err
+		return nil, err //nolint:wrapcheck
 	}
 
 	resourcePath := strings.ReplaceAll(httpRequest.URL.Path, constants.SantabaRestPath, "")
@@ -62,10 +58,11 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	newResp, err := client.Do(httpRequest)
 	if err != nil {
 		logger.Error(" Error executing => "+url, err)
+
 		return nil, err
 	}
+
 	// todo high priority
-	//defer newResp.Body.Close()
 
 	//	todo remove this
 	// resDump, err := httputil.DumpResponse(newResp, true)
@@ -76,7 +73,7 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 
 	// logger.Info("HTTP response => "+string(resDump), err)
 
-	return newResp, err
+	return newResp, err //nolint:wrapcheck
 }
 
 func buildBearerToken(authSettings *models.AuthSettings) string {
