@@ -3,10 +3,11 @@ package logicmonitor
 import (
 	"context"
 	"encoding/json"
-	"github.com/pkg/errors"
 	"io/ioutil"
 	"strconv"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
@@ -42,9 +43,11 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	}
 
 	//Gets Data from local cache for the selected query.
-	response, err = getFromFrameCache(uniqueID, logger)
-	if err == nil {
-		return response
+	if !ifCallFromQueryEditor {
+		response, err = getFromFrameCache(uniqueID, logger)
+		if err == nil {
+			return response
+		}
 	}
 
 	//Data is not present in the cache so fresh data needs to be fetched
