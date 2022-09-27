@@ -12,9 +12,10 @@ const (
 )
 
 const (
-	NoData   = "No Data"
-	Response = "response"
-	Time     = "time"
+	NoData          = "No Data"
+	Response        = "response"
+	Time            = "time"
+	RequestNotValid = "Request not valid"
 )
 
 const (
@@ -26,18 +27,20 @@ const (
 )
 
 const (
-	NoCompanyNameEnteredErrMsg = "Company name not entered"
-	NoAuthenticationErrMsg     = "Please Authenticate to use the plugin"
-	BearerTokenEmptyErrMsg     = "Please enter bearer token"
-	AccessKeyEmptyErrMsg       = "Please enter Access Key"
-	AccessIDEmptyErrMsg        = "Please enter AccessId"
-	HealthAPIErrMsg            = "Issue with Health API call to Logicmonitor"
-	HealthAPIURLErrMsg         = "Issue with Health API URL configuration"
-	HostUnreachableErrMsg      = "Host not reachable / invalid company name configured"
-	APIErrMsg                  = "API Failed with status code = "
-	URLConfigurationErrMsg     = "URL configuration missing in Backend"
-	InvalidTokenErrMsg         = "Invalid Token for Company or " //nolint:gosec
-	AuthSuccessMsg             = "Authentication Success"
+	NoCompanyNameEnteredErrMsg      = "Company name not entered"
+	NoAuthenticationErrMsg          = "Please Authenticate to use the plugin"
+	BearerTokenEmptyErrMsg          = "Please enter bearer token"
+	AccessKeyEmptyErrMsg            = "Please enter Access Key"
+	AccessIDEmptyErrMsg             = "Please enter AccessId"
+	HealthAPIErrMsg                 = "Issue with Health API call to Logicmonitor"
+	HealthAPIURLErrMsg              = "Issue with Health API URL configuration"
+	HostUnreachableErrMsg           = "Host not reachable / invalid company name configured"
+	APIErrMsg                       = "API Failed with status code = "
+	URLConfigurationErrMsg          = "URL configuration missing in Backend"
+	DataNotPresentCacheErrMsg       = "Data not present in Cache"
+	DataNotPresentEditorCacheErrMsg = "Data not present in Editor Cache"
+	InvalidTokenErrMsg              = "Invalid Token for Company or " //nolint:gosec
+	AuthSuccessMsg                  = "Authentication Success"
 )
 
 // These constants are from PathEndpoints.ts

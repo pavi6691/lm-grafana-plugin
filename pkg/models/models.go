@@ -23,7 +23,7 @@ type Data struct {
 	Time           []int64         `json:"time,omitempty"`
 }
 
-type SingleInstaceRawData struct {
+type SingleInstanceRawData struct {
 	Data Data `json:"data,omitempty"`
 }
 

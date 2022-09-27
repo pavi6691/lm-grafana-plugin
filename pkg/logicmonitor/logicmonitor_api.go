@@ -3,7 +3,7 @@ package logicmonitor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"time"
 
@@ -24,100 +24,89 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	var queryModel models.QueryModel
 	response.Error = json.Unmarshal([]byte(query.JSON), &queryModel)
 	if response.Error != nil || queryModel.DataPointSelected == nil {
-		logger.Error("Error Unmarshaling queryModel = ", response.Error)
+		logger.Error("Error Unmarshalling queryModel = ", response.Error)
 		return response
 	}
 
 	//Set the unique id
 	uniqueID := getUniqueID(&queryModel, &query, pluginSettings)
+	logger.Info("The Unique id is = ", uniqueID)
 
-	//Check if data is in temprary cache. user has recently updated panel,
+	ifCallFromQueryEditor := checkIfCallFromQueryEditor(&queryModel)
+	//Check if data is in temporary cache. user has recently updated panel,
 	//Keeps data for datasource interval time from the last time user has updated query
-	response, err := getFromTempCache(uniqueID, queryModel, pluginSettings, authSettings, query, logger)
+	response, err := getFromQueryEditorTempCache(uniqueID, &queryModel, logger)
 	if err == nil {
 		return response
 	}
 
 	//Gets Data from local cache for the selected query.
-	response, err = getFromFrameCache(uniqueID, queryModel.CollectInterval, query, logger)
+	response, err = getFromFrameCache(uniqueID, logger)
 	if err == nil {
 		return response
 	}
 
-	//datasource interval has been exhousted and fresh data needs to be fetched
-	rawData, err := callRawDataAPI(queryModel, pluginSettings, authSettings, query, logger)
+	//Data is not present in the cache so fresh data needs to be fetched
+	rawData, err := callRawDataAPI(&queryModel, pluginSettings, authSettings, query, logger)
 	if err != nil {
 		response.Error = err
 		logger.Error("Error calling rawData API ", err)
 		return response
 	}
 
-	response = buildFrameFromMultiInstace(queryModel, rawData.Data)
+	response = BuildFrameFromMultiInstance(&queryModel, &rawData.Data)
 	// Add data to cache
-	cache.StoreFrame(uniqueID, queryModel.CollectInterval, query, response.Frames)
+	if ifCallFromQueryEditor {
+		cache.StoreQueryEditorTempData(uniqueID, queryModel.CollectInterval, rawData.Data)
+	} else {
+		cache.StoreFrame(uniqueID, queryModel.CollectInterval, response.Frames)
+	}
+
 	return response
 }
 
 // This if block serves while updating query, temporarily stores results of rawdata for all instance and data points.
 // that avoid rest calls while selecting multiple instances/datapoints
-func getFromTempCache(uniqueId string, qm models.QueryModel, pluginSettings *models.PluginSettings, authSettings *models.AuthSettings,
-	query backend.DataQuery, logger log.Logger) (backend.DataResponse, error) {
-	lastTimeRange, lastTimeRangePresent := cache.GetLastTimeRange(uniqueId)
-	logger.Info("")
-	logger.Info("Is TimeRange Changed ? => ", !(lastTimeRangePresent && lastTimeRange == cache.GetCurrentTimeRange(query)))
-	if (time.Now().UnixMilli()-qm.LastQueryEditedTimeStamp)/1000 < qm.CollectInterval &&
-		lastTimeRangePresent && lastTimeRange == cache.GetCurrentTimeRange(query) {
-		if !cache.IsTempRawDataPresent(uniqueId) {
-			rawdata, err := callRawDataAPI(qm, pluginSettings, authSettings, query, logger)
-			if err != nil {
-				logger.Error("Error calling rawData API ", err)
-				return backend.DataResponse{}, fmt.Errorf("no data")
-			}
-			response := buildFrameFromMultiInstace(qm, rawdata.Data)
-			cache.StoreTemp(uniqueId, qm.CollectInterval, rawdata.Data)
-			return response, nil
-		}
-		logger.Info("From TempCache => FrameCache size = ", cache.RawDataCount())
-		logger.Info("From TempCache => TempRawDataCache size = ", cache.GetTempRawDataCount())
-		rdata, _ := cache.GetTempRawData(uniqueId)
-		rawdata := rdata.(models.MultiInstanceData)
-		return buildFrameFromMultiInstace(qm, rawdata), nil
+func getFromQueryEditorTempCache(uniqueId string, qm *models.QueryModel, logger log.Logger) (backend.DataResponse, error) {
+	cacheData, present := cache.GetQueryEditorCacheData(uniqueId)
+	if present {
+		//todo remove the loggers
+		logger.Info("From QueryEditorCache => FrameCache size = ", cache.GetFrameDataCount())
+		logger.Info("From QueryEditorCache => QueryEditorCache size = ", cache.GetQueryEditorCacheDataCount())
+		rawData := cacheData.(models.MultiInstanceData)
+		return BuildFrameFromMultiInstance(qm, &rawData), nil
 	}
-	return backend.DataResponse{}, fmt.Errorf("no data")
+	return backend.DataResponse{}, errors.New(constants.DataNotPresentEditorCacheErrMsg)
 }
 
 // Gets Data from local cache for the selected query.
-func getFromFrameCache(uniqueId string, collectInterval int64, query backend.DataQuery, logger log.Logger) (backend.DataResponse, error) {
-	lastExecutedTime, lastExecutedTimePresent := cache.GetLastExecutedTime(uniqueId)
-	lastTimeRange, lastTimeRangePresent := cache.GetLastTimeRange(uniqueId)
+// The cache is used for the collector interval duration. Also data is stored only for the instances asked
+func getFromFrameCache(uniqueId string, logger log.Logger) (backend.DataResponse, error) {
 	response := backend.DataResponse{}
-	if lastExecutedTimePresent &&
-		(lastExecutedTime+(collectInterval*1000)) > time.Now().Unix() &&
-		lastTimeRangePresent && lastTimeRange == cache.GetCurrentTimeRange(query) {
-		frameValue, framePresent := cache.GetData(uniqueId)
-		if framePresent {
-			logger.Info("From FrameCache => FrameCache size = ", cache.RawDataCount())
-			logger.Info("From FrameCache => TempRawDataCache size = ", cache.GetTempRawDataCount())
-			response.Frames = frameValue.(data.Frames)
-			return response, nil
-		} else {
-			logger.Error("Entry not exist in cache => ", uniqueId)
-		}
+	frameValue, framePresent := cache.GetData(uniqueId)
+	if framePresent {
+		//todo remove the loggers
+		logger.Info("From FrameCache => FrameCache size = ", cache.GetFrameDataCount())
+		logger.Info("From FrameCache => QueryEditorCache size = ", cache.GetQueryEditorCacheDataCount())
+		response.Frames = frameValue.(data.Frames)
+		return response, nil
+	} else {
+		logger.Error("Entry not exist in cache => ", uniqueId)
 	}
-	return response, fmt.Errorf("no data")
+	return response, errors.New(constants.DataNotPresentCacheErrMsg)
 }
 
 // Gets fresh data by calling rest API
-func callRawDataAPI(queryModel models.QueryModel, pluginSettings *models.PluginSettings, authSettings *models.AuthSettings,
+func callRawDataAPI(queryModel *models.QueryModel, pluginSettings *models.PluginSettings, authSettings *models.AuthSettings,
 	query backend.DataQuery, logger log.Logger) (models.MultiInstanceRawData, error) {
 	var rawData models.MultiInstanceRawData //nolint:exhaustivestruct
-	fullPath := BuildURLReplacingQueryParams(constants.RawDataMultiInstanceReq, &queryModel, &query)
-	//todo
+	fullPath := BuildURLReplacingQueryParams(constants.RawDataMultiInstanceReq, queryModel, &query)
+	//todo remove the loggers
 	logger.Debug("The full path is = ", fullPath)
 	logger.Debug("Calling API for query = ", queryModel)
-	logger.Debug("Cache size = ", cache.RawDataCount())
-	logger.Info("API Call => FrameCache size = ", cache.RawDataCount())
-	logger.Info("API Call => TempRawDataCache size = ", cache.GetTempRawDataCount())
+	logger.Debug("Cache size = ", cache.GetFrameDataCount())
+	logger.Info("API Call => FrameCache size = ", cache.GetFrameDataCount())
+	logger.Info("API Call => QueryEditorCache size = ", cache.GetQueryEditorCacheDataCount())
 	resp, err := httpclient.Get(pluginSettings, authSettings, fullPath, logger)
 	if err != nil {
 		logger.Error("Error from server => ", err)
@@ -139,5 +128,13 @@ func callRawDataAPI(queryModel models.QueryModel, pluginSettings *models.PluginS
 }
 
 func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string {
-	return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label + queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label
+	lastFromTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.From, queryModel.CollectInterval)
+	lastToTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.To, queryModel.CollectInterval)
+	return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
+		queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
+		lastFromTimeUnixTruncated.String() + lastToTimeUnixTruncated.String()
+}
+
+func checkIfCallFromQueryEditor(queryModel *models.QueryModel) bool {
+	return (time.Now().UnixMilli()-queryModel.LastQueryEditedTimeStamp)/1000 < queryModel.CollectInterval
 }
