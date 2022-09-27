@@ -2,53 +2,70 @@ package logicmonitor
 
 import (
 	"fmt"
+	"math"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	. "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
-	"math"
-	"net/url"
-	"time"
 )
 
-func BuildFrame(dataPointSelected []models.LabelIntValue, rawData models.Data) *data.Frame {
-	// create data frame response.
-	frame := data.NewFrame(Response)
+// build frames for response with multi instances ref @constants.MultiInstaceDataUrl
+func buildFrameFromMultiInstace(qm models.QueryModel, data models.MultiInstanceData) backend.DataResponse {
+	response := backend.DataResponse{}
+	for _, instance := range qm.InstanceSelected {
+		_, ok := data.Instances[data.DataSourceName+"-"+instance.Label]
+		var key string
+		if ok {
+			key = data.DataSourceName + "-" + instance.Label
+		} else {
+			key = instance.Label
+		}
+		dataFrame := buildFrame(instance.Label, qm.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time)
+		// add the frames to the response.
+		response.Frames = append(response.Frames, dataFrame)
+	}
+	return response
+}
 
+// build frames for given datapoints, values and time
+func buildFrame(instanceName string, dataPointSelected []models.LabelIntValue, DataPoints []string, Values [][]interface{}, Time []int64) *data.Frame {
+	// create data frame response.
+	frame := data.NewFrame("response")
+
+	// add fields
 	frame.Fields = append(frame.Fields,
-		data.NewField(Time, nil, []time.Time{}),
+		data.NewField("time", nil, []time.Time{}),
 	)
 
 	for _, element := range dataPointSelected {
 		frame.Fields = append(frame.Fields,
-			data.NewField(element.Label, nil, []float64{}),
+			data.NewField(instanceName+string(constants.InstantAndDpDelim)+element.Label, nil, []float64{}),
 		)
 	}
-
-	for i, values := range rawData.Values {
+	for i, values := range Values {
 		vals := make([]interface{}, len(frame.Fields))
-
-		var idx = 1
-		vals[0] = time.UnixMilli(rawData.Time[i])
-
-		for j, dp := range rawData.DataPoints {
+		var idx int = 1
+		vals[0] = time.UnixMilli(Time[i])
+		for j, dp := range DataPoints {
 			for _, field := range frame.Fields {
-				if field.Name == dp {
-					if values[j] == NoData {
+				if field.Name[strings.IndexByte(field.Name, constants.InstantAndDpDelim)+1:] == dp {
+					if values[j] == "No Data" {
 						vals[idx] = math.NaN()
 					} else {
 						vals[idx] = values[j]
 					}
 					idx++
-
 					break
 				}
 			}
 		}
-
 		frame.AppendRow(vals...)
 	}
-
 	return frame
 }
 
@@ -62,11 +79,6 @@ func BuildFrame(dataPointSelected []models.LabelIntValue, rawData models.Data) *
 //	return fmt.Sprintf(constants.RawDataResourcePath, queryModel.HostSelected.Value, queryModel.HdsSelected,
 //		queryModel.InstanceSelected.Value)
 //}
-
-func UnixTruncateToMinute(unixTime int64) int64 {
-	t := time.Unix(unixTime, 0)
-	return t.Truncate(time.Minute).Unix()
-}
 
 func BuildURLReplacingQueryParams(request string, qm *models.QueryModel, query *backend.DataQuery) string {
 	switch request {
@@ -88,18 +100,29 @@ func BuildURLReplacingQueryParams(request string, qm *models.QueryModel, query *
 		return fmt.Sprintf(DataPointURL, qm.DataSourceSelected.Ds)
 	case HealthCheckReq:
 		return HealthCheckURL
-	case RawDataReq:
-		return fmt.Sprintf(RawDataURL, qm.HostSelected.Value, qm.HdsSelected,
-			qm.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix())
+	case RawDataSingleInstaceReq:
+		return fmt.Sprintf(RawDataSingleInstanceURL, qm.HostSelected.Value, qm.HdsSelected,
+			qm.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(), getDataPointNamesDelimByComma(qm.DataPointSelected))
 	case RawDataMultiInstanceReq:
-		return fmt.Sprintf(RawDataMultiInstanceReq, qm.HostSelected.Value, qm.HdsSelected,
-			qm.InstanceSelected[0].Value, query.TimeRange.From.Unix(), query.TimeRange.To.Unix())
+		return fmt.Sprintf(RawDataMultiInstanceURL, qm.HostSelected.Value, qm.HdsSelected, query.TimeRange.From.Unix(),
+			query.TimeRange.To.Unix(), getDataPointNamesDelimByComma(qm.DataPointSelected))
 	case AllHostReq:
 		return AllHostURL
 	case AllInstanceReq:
 		return fmt.Sprintf(AllInstanceURL, qm.HostSelected.Value, qm.HdsSelected)
 	default:
-
-		return ""
+		return "Request not valid"
 	}
+}
+
+func getDataPointNamesDelimByComma(lv []models.LabelIntValue) string {
+	var s string
+	for i, d := range lv {
+		if i == 0 {
+			s = d.Label
+		} else {
+			s = s + "," + d.Label
+		}
+	}
+	return s
 }

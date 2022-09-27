@@ -11,7 +11,7 @@ const SELECT_ALL_STAR = "*";
 export class QueryEditor extends PureComponent<Props> {
   getRawData = () => {
     const { onChange, query, onRunQuery } = this.props;
-    query.uniqueId = new Date().getTime() + '';
+    query.lastQueryEditedTimeStamp = new Date().getTime();
     onChange({ ...query });
     onRunQuery();
   };

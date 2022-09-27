@@ -23,22 +23,37 @@ type Data struct {
 	Time           []int64         `json:"time,omitempty"`
 }
 
-type RawData struct {
+type SingleInstaceRawData struct {
 	Data Data `json:"data,omitempty"`
 }
 
+type ValuesAndTime struct {
+	Values [][]interface{} `json:"values,omitempty"`
+	Time   []int64         `json:"time,omitempty"`
+}
+
+type MultiInstanceData struct {
+	DataSourceName string                   `json:"dataSourceName,omitempty"`
+	DataPoints     []string                 `json:"dataPoints,omitempty"`
+	Instances      map[string]ValuesAndTime `json:"instances,omitempty"`
+}
+
+type MultiInstanceRawData struct {
+	Data MultiInstanceData `json:"data,omitempty"`
+}
+
 type QueryModel struct {
-	TypeSelected       string             `json:"typeSelected"`
-	GroupSelected      LabelIntValue      `json:"groupSelected"`
-	HostSelected       LabelStringValue   `json:"hostSelected"`
-	HdsSelected        int64              `json:"hdsSelected"`
-	DataSourceSelected DataSource         `json:"dataSourceSelected"`
-	InstanceSelected   []LabelStringValue `json:"instanceSelected"`
-	InstanceSearch     string             `json:"instanceSearch"`
-	DataPointSelected  []LabelIntValue    `json:"dataPointSelected"`
-	WithStreaming      bool               `json:"withStreaming"`
-	CollectInterval    int64              `json:"collectInterval"`
-	UniqueID           string             `json:"uniqueId"`
+	TypeSelected             string             `json:"typeSelected"`
+	GroupSelected            LabelIntValue      `json:"groupSelected"`
+	HostSelected             LabelStringValue   `json:"hostSelected"`
+	HdsSelected              int64              `json:"hdsSelected"`
+	DataSourceSelected       DataSource         `json:"dataSourceSelected"`
+	InstanceSelected         []LabelStringValue `json:"instanceSelected"`
+	InstanceSearch           string             `json:"instanceSearch"`
+	DataPointSelected        []LabelIntValue    `json:"dataPointSelected"`
+	WithStreaming            bool               `json:"withStreaming"`
+	CollectInterval          int64              `json:"collectInterval"`
+	LastQueryEditedTimeStamp int64              `json:"lastQueryEditedTimeStamp"`
 }
 
 type DeviceData struct {

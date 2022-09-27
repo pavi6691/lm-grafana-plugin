@@ -1,8 +1,11 @@
-package plugin
+package datasource
 
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpclient"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/logicmonitor"
@@ -10,8 +13,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
-	"io/ioutil"
-	"net/http"
 )
 
 var (
@@ -189,8 +190,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 	var qm models.QueryModel
 	err := json.Unmarshal(req.Body, &qm)
 	if err != nil {
-		log.DefaultLogger.Error("Error parsing ", err.Error())
-
+		ds.Logger.Error("Error parsing ", err.Error())
 		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
 			Status: http.StatusInternalServerError,
 			Body:   []byte(err.Error()),
@@ -199,8 +199,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 	requestURL := logicmonitor.BuildURLReplacingQueryParams(req.Path, &qm, nil)
 	if requestURL == "" {
-		log.DefaultLogger.Error(constants.URLConfigurationErrMsg)
-
+		ds.Logger.Error(constants.URLConfigurationErrMsg)
 		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
 			Status: http.StatusInternalServerError,
 			Body:   []byte(constants.URLConfigurationErrMsg),
@@ -219,8 +218,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 	bodyText, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		ds.Logger.Info(" Error reading response => ", resp.Body)
-
+		ds.Logger.Info(" Error reading response => ", err)
 		return sender.Send(&backend.CallResourceResponse{ //nolint:exhaustivestruct
 			Status: http.StatusInternalServerError,
 			Body:   []byte(err.Error()),

@@ -52,7 +52,7 @@ const (
 	DataPointReq            = "DataPointReq"
 
 	// Below constants are not used in Frontend
-	RawDataReq              = "RawDataReq"
+	RawDataSingleInstaceReq = "RawDataReq"
 	RawDataMultiInstanceReq = "RawDataMultiInstanceReq"
 	HealthCheckReq          = "HealthCheckReq"
 )
@@ -80,15 +80,20 @@ const (
 	// DataPointURL DataPoints
 	DataPointURL = "setting/datasources/%d?format=json&fields=dataPoints,collectInterval"
 
-	// AllHostURL = Get All Hosts // -------- If autocomplete is disabled below APIs are used
+	HealthCheckURL = "device/devices?size=1"
+
+	RawDataSingleInstanceURL = "device/devices/%s/devicedatasources/%d/instances/%s/data?start=%d&end=%d&datapoints=%s"
+
+	RawDataMultiInstanceURL = "device/devices/%s/devicedatasources/%d/data?start=%d&end=%d&datapoints=%s"
+
+	// -------- If autocomplete is disabled below APIs are used
+	// AllHostURL = Get All Hosts
 	AllHostURL = "device/devices?format=json&fields=id,displayName&size=-1"
 
 	// AllInstanceURL = Get All Instances by hostId and Host Datasource Id
 	AllInstanceURL = "device/devices/%s/devicedatasources/%d/instances?format=json&fields=id,name&size=-1"
+)
 
-	HealthCheckURL = "device/devices?size=1"
-
-	RawDataURL = "device/devices/%s/devicedatasources/%d/instances/%s/data?start=%d&end=%d"
-
-	RawDataMultiInstanceURL = ""
+const (
+	InstantAndDpDelim byte = '-'
 )
