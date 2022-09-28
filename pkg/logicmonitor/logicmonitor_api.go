@@ -3,8 +3,8 @@ package logicmonitor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -134,14 +134,16 @@ func callRawDataAPI(queryModel *models.QueryModel, pluginSettings *models.Plugin
 	resp, err := httpclient.Get(pluginSettings, authSettings, fullPath, logger)
 	if err != nil {
 		logger.Error("Error from server => ", err)
+
 		return rawData, err //nolint:wrapcheck
 	}
-	if resp.StatusCode == 429 {
-		err = fmt.Errorf(constants.RateLimitMessage)
-		return rawData, err
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return rawData, errors.New(constants.RateLimitErrMsg)
 	}
+
 	bodyText, err := ioutil.ReadAll(resp.Body)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil || resp.StatusCode != http.StatusOK {
 		logger.Error("Error reading response => ", resp.Body)
 		return rawData, err //nolint:wrapcheck
 	}
