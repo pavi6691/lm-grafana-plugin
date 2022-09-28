@@ -345,10 +345,9 @@ export class QueryEditor extends PureComponent<Props> {
     }
     return (
       <div style={{ width: '100%' }}>
-        <div style={{ display: 'flex', marginBottom:5 }}>
+        {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5 }}>
           <InlineLabel width={15}>Resource Type</InlineLabel>
           <RadioButtonGroup
-            disabled={isAutocompleteEnabled === false}
             onChange={(v) => {
               this.props.query.typeSelected = v;
               setGroup(null)
@@ -360,11 +359,10 @@ export class QueryEditor extends PureComponent<Props> {
               { label: 'Services', value: 'BizService' }, ]}
             fullWidth={true}
           />
-        </div>
-        <div style={{ display: 'flex', marginBottom:5 }}>
+        </div>}
+        {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5 }}>
           <InlineLabel width={15}>Groups</InlineLabel>
           <Select
-            disabled={isAutocompleteEnabled === false}
             menuPlacement={'bottom'}
             defaultValue={this.props.query.groupSelected}
             options={groupOptions}
@@ -382,12 +380,12 @@ export class QueryEditor extends PureComponent<Props> {
               }
             }}
             onChange={(v) => {
-              if(v !== null) {
+              if(v !== null && this.props.query.groupSelected !== v) {
                 setGroup(v)
               }
             }}
           />
-        </div>
+        </div>}
         <div style={{ display: 'flex', marginBottom:5 }}>
           <InlineLabel width={15}>Resources</InlineLabel>
           <Select
@@ -408,7 +406,7 @@ export class QueryEditor extends PureComponent<Props> {
               }
             }}
             onChange={(v) => {
-              if(v !== null) {
+              if(v !== null && this.props.query.hostSelected !== v ) {
                 setHostSelected(v);
                 setDataSourceSelected(null);
                 setInstanceSelected([]);
