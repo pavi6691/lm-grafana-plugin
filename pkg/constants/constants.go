@@ -41,6 +41,7 @@ const (
 	DataNotPresentEditorCacheErrMsg = "Data not present in Editor Cache"
 	InvalidTokenErrMsg              = "Invalid Token for Company or " //nolint:gosec
 	AuthSuccessMsg                  = "Authentication Success"
+	RateLimitMessage                = "Rate limit exceeded"
 )
 
 // These constants are from PathEndpoints.ts.
