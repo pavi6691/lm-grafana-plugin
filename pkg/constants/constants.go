@@ -97,5 +97,6 @@ const (
 )
 
 const (
-	InstantAndDpDelim byte = '-'
+	DataSourceAndInstanceDelim byte   = '-'
+	InstantAndDpDelim          string = " ~ "
 )

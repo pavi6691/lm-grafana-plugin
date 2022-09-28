@@ -2,29 +2,22 @@
 
 Visualize your LogicMonitor metrics with the leading open source software for time series analytics.
 
-![Dashboard](https://drive.google.com/file/d/1G-y4z_Vb1UCqYr6F8tT7yh_vWNYItrBf/view?usp=sharing)
+[//]: # (![Dashboard]&#40;https://drive.google.com/file/d/1G-y4z_Vb1UCqYr6F8tT7yh_vWNYItrBf/view?usp=sharing&#41;)
 
 ## Features
 
-- Create interactive and support to reuse dashboards by exporting them in the form of json
-- Familier query selection as on Logicmonitor
-- No hazzles writting query using sql,regex or any other sytax
-- Easy selection by either service/devices, followed by device, datasource, instances and datapoints.
-- Multiple metrics are supported on single query
-- Can have metrics from multiple data sources in single panel
+- Familiar query selection as on LogicMonitor.
+- Easy selection by either service/devices, followed by device, datasource, instances and dataPoints.
+- Multiple instances are supported on single query.
+- Multiple dataPoints are supported on single query.
+- Caching of APIs with TTL of Polling interval to avoid Rate Limits.
+- Caching of queries across multiple users.
 
-## Installation
-
-Install by using `grafana-cli`
-
-```sh
-grafana-cli plugins install logicmonitor-datasource
-```
 
 ## Getting started
-- Once plugin is installed, add it
-- On settings page, privice company name and athenticate by providing LMv1 access id and api key
-Then you can create your first dashboard with step-by-step
+- Once data source plugin is installed, click on Add Data Source
+- On data source settings page, provide **Company Name** and authenticate by providing **LMv1 Access id** and **Api Key**
+
 
 ## Community Resources, Feedback, and Support
 - Have a question? You also can open issue, but for questions, it would be better to use [Grafana Community](https://community.grafana.com/) portal.
@@ -32,4 +25,4 @@ Then you can create your first dashboard with step-by-step
 
 ---
 
-Licensed under the Apache 2.0 License
+Licensed under the Mozilla Public License Version 2.0

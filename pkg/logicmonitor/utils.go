@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"net/url"
-	"strings"
 	"time"
 
 	. "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
@@ -20,9 +19,9 @@ func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.Mul
 	for _, instance := range queryModel.InstanceSelected {
 		key := instance.Label
 
-		_, ok := data.Instances[data.DataSourceName+string(InstantAndDpDelim)+instance.Label]
+		_, ok := data.Instances[data.DataSourceName+string(DataSourceAndInstanceDelim)+instance.Label]
 		if ok {
-			key = data.DataSourceName + string(InstantAndDpDelim) + instance.Label
+			key = data.DataSourceName + string(DataSourceAndInstanceDelim) + instance.Label
 		}
 
 		dataFrame := buildFrame(instance.Label, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
@@ -45,8 +44,15 @@ func buildFrame(instanceName string, dataPointSelected []models.LabelIntValue, d
 
 	for _, datapoint := range dataPointSelected {
 		frame.Fields = append(frame.Fields,
-			data.NewField(instanceName+string(InstantAndDpDelim)+datapoint.Label, nil, []float64{}),
+			data.NewField(instanceName+InstantAndDpDelim+datapoint.Label, nil, []float64{}),
 		)
+	}
+
+	// this dataPontMap is to keep indexs of datapoints as value,
+	// so as to get relevant value from Values array for selected data points
+	dataPontMap := make(map[string]int)
+	for i, v := range dataPoints {
+		dataPontMap[v] = i
 	}
 
 	for i, values := range Values {
@@ -54,21 +60,15 @@ func buildFrame(instanceName string, dataPointSelected []models.LabelIntValue, d
 		var idx = 1
 		vals[0] = time.UnixMilli(Time[i])
 
-		for j, dp := range dataPoints {
-			for _, field := range frame.Fields {
-				if field.Name[strings.IndexByte(field.Name, InstantAndDpDelim)+1:] == dp {
-					if values[j] == NoData {
-						vals[idx] = math.NaN()
-					} else {
-						vals[idx] = values[j]
-					}
-					idx++
-
-					break
-				}
+		for _, dp := range dataPointSelected {
+			fieldIdx := dataPontMap[dp.Label]
+			if values[fieldIdx] == NoData {
+				vals[idx] = math.NaN()
+			} else {
+				vals[idx] = values[fieldIdx]
 			}
+			idx++
 		}
-
 		frame.AppendRow(vals...)
 	}
 
