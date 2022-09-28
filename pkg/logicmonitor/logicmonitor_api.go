@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -137,10 +138,13 @@ func callRawDataAPI(queryModel *models.QueryModel, pluginSettings *models.Plugin
 		return rawData, err //nolint:wrapcheck
 	}
 
-	bodyText, err := ioutil.ReadAll(resp.Body)
-	if err != nil || resp.StatusCode != 200 {
-		logger.Error("Error reading response => ", resp.Body)
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return rawData, errors.New(constants.RateLimitErrMsg)
+	}
 
+	bodyText, err := ioutil.ReadAll(resp.Body)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		logger.Error("Error reading response => ", resp.Body)
 		return rawData, err //nolint:wrapcheck
 	}
 	defer resp.Body.Close()
