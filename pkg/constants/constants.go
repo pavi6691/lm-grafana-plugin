@@ -27,27 +27,27 @@ const (
 )
 
 const (
-	NoCompanyNameEnteredErrMsg      = "Company name not entered"
-	NoAuthenticationErrMsg          = "Please Authenticate to use the plugin"
-	BearerTokenEmptyErrMsg          = "Please enter bearer token"
-	AccessKeyEmptyErrMsg            = "Please enter Access Key"
-	AccessIDEmptyErrMsg             = "Please enter AccessId"
-	HealthAPIErrMsg                 = "Issue with Health API call to Logicmonitor"
-	HealthAPIURLErrMsg              = "Issue with Health API URL configuration"
-	NoSuchHostError                 = ": no such host"
-	ConnectionRefused               = ": connection refused"
-	NetworkError                    = "Netwrok Error"
-	ServiceUnavailable              = "Service Temporarily Unavailable"
-	InvalidCompanyName              = "Invalid company name configured"
-	APIErrMsg                       = "API Failed with status code = "
-	URLConfigurationErrMsg          = "URL configuration missing in Backend"
-	ErrorReadingResponseBody        = "Error reading response Body = "
-	ErrorUnmarshallingErrorData     = "Error Unmarshalling rawData = "
-	DataNotPresentCacheErrMsg       = "Data not present in Cache"
-	DataNotPresentEditorCacheErrMsg = "Data not present in Editor Cache"
-	RateLimitErrMsg                 = "Rate limit exceeded"
-	AuthSuccessMsg                  = "Authentication Success"
-	InterServerErrorJsonErrMessage  = `{ "error":"%s"}`
+	NoCompanyNameEnteredErrMsg        = "Company name not entered"
+	NoAuthenticationErrMsg            = "Please Authenticate to use the plugin"
+	BearerTokenEmptyErrMsg            = "Please enter bearer token"
+	AccessKeyEmptyErrMsg              = "Please enter Access Key"
+	AccessIDEmptyErrMsg               = "Please enter AccessId"
+	HealthAPIErrMsg                   = "Issue with Health API call to Logicmonitor"
+	HealthAPIURLErrMsg                = "Issue with Health API URL configuration"
+	NoSuchHostError                   = ": no such host"
+	ConnectionRefused                 = ": connection refused"
+	NetworkError                      = "Netwrok Error"
+	ServiceUnavailable                = "Service Temporarily Unavailable"
+	InvalidCompanyName                = "Invalid company name configured"
+	APIErrMsg                         = "API Failed with status code = "
+	URLConfigurationErrMsg            = "URL configuration missing in Backend"
+	ErrorReadingResponseBody          = "Error reading response Body = "
+	ErrorUnmarshallingErrorData       = "Error Unmarshalling rawData = "
+	DataNotPresentCacheErrMsg         = "Data not present in Cache"
+	DataNotPresentEditorCacheErrMsg   = "Data not present in Editor Cache"
+	RateLimitErrMsg                   = "Rate limit exceeded"
+	AuthSuccessMsg                    = "Authentication Success"
+	InternalServerErrorJsonErrMessage = `{ "error":"%s"}`
 )
 
 // These constants are from PathEndpoints.ts.

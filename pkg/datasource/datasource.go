@@ -165,7 +165,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
-			Body:   []byte(fmt.Sprintf(constants.InterServerErrorJsonErrMessage, constants.URLConfigurationErrMsg)),
+			Body:   []byte(fmt.Sprintf(constants.InternalServerErrorJsonErrMessage, constants.URLConfigurationErrMsg)),
 		})
 	}
 
@@ -175,7 +175,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
-			Body:   []byte(fmt.Sprintf(constants.InterServerErrorJsonErrMessage, constants.URLConfigurationErrMsg)),
+			Body:   []byte(fmt.Sprintf(constants.InternalServerErrorJsonErrMessage, constants.URLConfigurationErrMsg)),
 		})
 	}
 
@@ -185,7 +185,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
-			Body:   []byte(fmt.Sprintf(constants.InterServerErrorJsonErrMessage, err.Error())),
+			Body:   []byte(fmt.Sprintf(constants.InternalServerErrorJsonErrMessage, err.Error())),
 		})
 	}
 
