@@ -38,7 +38,7 @@ const (
 	ConnectionRefused               = ": connection refused"
 	NetworkError                    = "Netwrok Error"
 	ServiceUnavailable              = "Service Temporarily Unavailable"
-	InvalidCompanyName              = "Invalid company name Configured"
+	InvalidCompanyName              = "Invalid company name configured"
 	APIErrMsg                       = "API Failed with status code = "
 	URLConfigurationErrMsg          = "URL configuration missing in Backend"
 	ErrorReadingResponseBody        = "Error reading response Body = "
