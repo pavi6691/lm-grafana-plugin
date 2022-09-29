@@ -39,7 +39,9 @@ type MultiInstanceData struct {
 }
 
 type MultiInstanceRawData struct {
-	Data MultiInstanceData `json:"data,omitempty"`
+	Data   MultiInstanceData `json:"data,omitempty"`
+	Error  string            `json:"errmsg,omitempty"`
+	Status int               `json:"status,omitempty"`
 }
 
 type QueryModel struct {

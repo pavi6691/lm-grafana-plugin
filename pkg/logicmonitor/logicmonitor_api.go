@@ -156,6 +156,10 @@ func callRawDataAPI(queryModel *models.QueryModel, pluginSettings *models.Plugin
 		return rawData, err //nolint:wrapcheck
 	}
 
+	if rawData.Error != "OK" {
+		return rawData, errors.New(rawData.Error)
+	}
+
 	return rawData, nil
 }
 
