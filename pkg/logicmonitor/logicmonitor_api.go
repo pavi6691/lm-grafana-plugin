@@ -3,8 +3,6 @@ package logicmonitor
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -131,25 +129,14 @@ func callRawDataAPI(queryModel *models.QueryModel, pluginSettings *models.Plugin
 	logger.Info("API Call => FrameCache size = ", cache.GetFrameDataCount())
 	logger.Info("API Call => QueryEditorCache size = ", cache.GetQueryEditorCacheDataCount())
 
-	resp, err := httpclient.Get(pluginSettings, authSettings, fullPath, logger)
+	respByte, err := httpclient.Get(pluginSettings, authSettings, fullPath, logger)
 	if err != nil {
 		logger.Error("Error from server => ", err)
 
 		return rawData, err //nolint:wrapcheck
 	}
 
-	if resp.StatusCode == http.StatusTooManyRequests {
-		return rawData, errors.New(constants.RateLimitErrMsg)
-	}
-
-	bodyText, err := ioutil.ReadAll(resp.Body)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		logger.Error("Error reading response => ", resp.Body)
-		return rawData, err //nolint:wrapcheck
-	}
-	defer resp.Body.Close()
-
-	err = json.Unmarshal(bodyText, &rawData)
+	err = json.Unmarshal(respByte, &rawData)
 	if err != nil {
 		logger.Error("Error Unmarshalling raw-data => ", err)
 

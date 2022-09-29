@@ -37,15 +37,17 @@ const (
 	NoSuchHostError                 = ": no such host"
 	ConnectionRefused               = ": connection refused"
 	NetworkError                    = "Netwrok Error"
-	HostUnreachableErrMsg           = "Host Not Reachable"
+	ServiceUnavailable              = "Service Temporarily Unavailable"
 	InvalidCompanyName              = "Invalid company name Configured"
 	APIErrMsg                       = "API Failed with status code = "
 	URLConfigurationErrMsg          = "URL configuration missing in Backend"
+	ErrorReadingResponseBody        = "Error reading response Body = "
+	ErrorUnmarshallingErrorData     = "Error Unmarshalling rawData = "
 	DataNotPresentCacheErrMsg       = "Data not present in Cache"
 	DataNotPresentEditorCacheErrMsg = "Data not present in Editor Cache"
-	InvalidTokenErrMsg              = "Invalid Token for Company or " //nolint:gosec
 	RateLimitErrMsg                 = "Rate limit exceeded"
 	AuthSuccessMsg                  = "Authentication Success"
+	InterServerErrorJsonErrMessage  = `{ "error":"%s"}`
 )
 
 // These constants are from PathEndpoints.ts.

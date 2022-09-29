@@ -3,7 +3,7 @@ package datasource
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"net/http"
 
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
@@ -97,33 +97,15 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 		return healthRequest, nil
 	}
 
-	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
+	_, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
 	if err != nil {
 		healthRequest.Message = err.Error()
 		healthRequest.Status = backend.HealthStatusError
 
 		return healthRequest, nil //nolint:nilerr
 	}
-
-	// Not caching any error as we dont want the data json
-	deviceData := models.DeviceData{} //nolint:exhaustivestruct
-
-	json.NewDecoder(resp.Body).Decode(&deviceData) //nolint:errcheck
-	defer resp.Body.Close()
-
-	if deviceData.Status == http.StatusOK {
-		healthRequest.Status = backend.HealthStatusOk
-		healthRequest.Message = constants.AuthSuccessMsg
-
-		return healthRequest, nil
-	} else if deviceData.Status == 400 {
-		healthRequest.Status = backend.HealthStatusError
-		healthRequest.Message = constants.InvalidTokenErrMsg + deviceData.Errmsg
-	} else {
-		healthRequest.Status = backend.HealthStatusError
-		healthRequest.Message = deviceData.Errmsg
-	}
-
+	healthRequest.Status = backend.HealthStatusOk
+	healthRequest.Message = constants.AuthSuccessMsg
 	return healthRequest, nil
 }
 
@@ -183,7 +165,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
-			Body:   []byte(err.Error()),
+			Body:   []byte(fmt.Sprintf(constants.InterServerErrorJsonErrMessage, constants.URLConfigurationErrMsg)),
 		})
 	}
 
@@ -193,32 +175,22 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
-			Body:   []byte(constants.URLConfigurationErrMsg),
+			Body:   []byte(fmt.Sprintf(constants.InterServerErrorJsonErrMessage, constants.URLConfigurationErrMsg)),
 		})
 	}
 
-	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
+	respByte, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
 	if err != nil {
 		ds.Logger.Info(" Error from server => ", err)
 
 		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
-			Body:   []byte(err.Error()),
+			Body:   []byte(fmt.Sprintf(constants.InterServerErrorJsonErrMessage, err.Error())),
 		})
 	}
-
-	bodyText, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		ds.Logger.Info(" Error reading response => ", err)
-		return sender.Send(&backend.CallResourceResponse{ //nolint:wsl,exhaustivestruct
-			Status: http.StatusInternalServerError,
-			Body:   []byte(err.Error()),
-		})
-	}
-	defer resp.Body.Close()
 
 	return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
-		Status: resp.StatusCode,
-		Body:   bodyText, //nolint:unconvert
+		Status: http.StatusOK,
+		Body:   respByte, //nolint:unconvert
 	})
 }

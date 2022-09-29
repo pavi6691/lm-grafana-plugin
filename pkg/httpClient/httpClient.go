@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -16,7 +17,7 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
 
-func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) (*http.Response, error) { //nolint:lll
+func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) ([]byte, error) { //nolint:lll
 	url := fmt.Sprintf(constants.RootURL, pluginSettings.Path) + requestURL
 	client := &http.Client{} //nolint:exhaustivestruct
 
@@ -58,20 +59,18 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	// logger.Info("Hitting HTTP request with headers => ", string(reqDump), err)
 
 	newResp, err := client.Do(httpRequest)
-	if err != nil {
-		logger.Error(" Error executing => "+url, err)
-		if strings.Contains(err.Error(), constants.NoSuchHostError) {
-			err = errors.New(constants.InvalidCompanyName)
-		} else if strings.Contains(err.Error(), constants.ConnectionRefused) {
-			err = errors.New(constants.NetworkError)
-		}
-		return nil, err
-	}
 
-	if newResp.StatusCode == http.StatusServiceUnavailable ||
-		newResp.StatusCode == http.StatusInternalServerError ||
-		newResp.StatusCode == http.StatusBadRequest {
-		return nil, errors.New(constants.HostUnreachableErrMsg)
+	respByte, err := ioutil.ReadAll(newResp.Body)
+	if err != nil {
+		logger.Error(constants.ErrorReadingResponseBody, err)
+		return nil, errors.New(constants.ErrorReadingResponseBody)
+
+	}
+	defer newResp.Body.Close()
+
+	err = handleException(newResp, err)
+	if err != nil {
+		return nil, err
 	}
 
 	// todo high priority
@@ -85,7 +84,7 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 
 	// logger.Info("HTTP response => "+string(resDump), err)
 
-	return newResp, err //nolint:wrapcheck
+	return respByte, err //nolint:wrapcheck
 }
 
 func buildBearerToken(authSettings *models.AuthSettings) string {

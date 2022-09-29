@@ -47,8 +47,6 @@ export class QueryEditor extends PureComponent<Props> {
           hostArray.push({label: result.data.items[i] });
         }
       }
-    } else {
-      return result;
     }
     return hostArray;
   }

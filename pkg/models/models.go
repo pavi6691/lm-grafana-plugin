@@ -58,9 +58,17 @@ type QueryModel struct {
 	LastQueryEditedTimeStamp int64              `json:"lastQueryEditedTimeStamp"`
 }
 
-type DeviceData struct {
-	DeviceData string `json:"data"`
+type Error struct {
+	Error        string `json:"error"`
+	Errmsg       string `json:"errmsg"`
+	Message      string `json:"message"`
+	ErrorMessage string `json:"errorMessage"`
+}
+
+type ErrResponse struct {
+	ErrorData  Error  `json:"data"`
 	Errmsg     string `json:"errmsg"`
+	StatusText string `json:"statusText"`
 	Status     int32  `json:"status"`
 }
 
