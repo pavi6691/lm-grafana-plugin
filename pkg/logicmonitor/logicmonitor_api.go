@@ -156,7 +156,8 @@ func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, plugin
 
 	return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
 		queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
-		strconv.FormatInt(lastFromTimeUnixTruncated, 10) + strconv.FormatInt(lastToTimeUnixTruncated, 10)
+		strconv.FormatInt(lastFromTimeUnixTruncated, 10) + strconv.FormatInt(lastToTimeUnixTruncated, 10) +
+		strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10)
 }
 
 func checkIfCallFromQueryEditor(queryModel *models.QueryModel) bool {
