@@ -59,15 +59,16 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	// logger.Info("Hitting HTTP request with headers => ", string(reqDump), err)
 
 	newResp, err := client.Do(httpRequest)
+	var respByte []byte
+	if err == nil {
+		respByte, err = ioutil.ReadAll(newResp.Body)
+		if err != nil {
+			logger.Error(constants.ErrorReadingResponseBody, err)
+			return nil, errors.New(constants.ErrorReadingResponseBody)
 
-	respByte, err := ioutil.ReadAll(newResp.Body)
-	if err != nil {
-		logger.Error(constants.ErrorReadingResponseBody, err)
-		return nil, errors.New(constants.ErrorReadingResponseBody)
-
+		}
+		defer newResp.Body.Close()
 	}
-	defer newResp.Body.Close()
-
 	err = handleException(newResp, err)
 	if err != nil {
 		return nil, err

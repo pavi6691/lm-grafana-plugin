@@ -12,7 +12,7 @@ func handleException(response *http.Response, err error) error {
 	if err != nil {
 		if strings.Contains(err.Error(), constants.NoSuchHostError) {
 			err = errors.New(constants.InvalidCompanyName)
-		} else if strings.Contains(err.Error(), constants.ConnectionRefused) {
+		} else if strings.Contains(err.Error(), constants.ConnectionRefused) || strings.Contains(err.Error(), constants.WriteTcpError) {
 			err = errors.New(constants.NetworkError)
 		}
 		return err

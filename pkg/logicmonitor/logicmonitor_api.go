@@ -26,7 +26,7 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 
 	response.Error = json.Unmarshal(query.JSON, &queryModel)
 	if response.Error != nil || queryModel.DataPointSelected == nil {
-		logger.Error("Error Unmarshalling queryModel = ", response.Error)
+		logger.Error(constants.ErrorUnmarshallingErrorData+"queryModel =>", response.Error)
 
 		return response
 	}
@@ -138,7 +138,7 @@ func callRawDataAPI(queryModel *models.QueryModel, pluginSettings *models.Plugin
 
 	err = json.Unmarshal(respByte, &rawData)
 	if err != nil {
-		logger.Error("Error Unmarshalling raw-data => ", err)
+		logger.Error(constants.ErrorUnmarshallingErrorData+"raw-data => ", err)
 
 		return rawData, err //nolint:wrapcheck
 	}

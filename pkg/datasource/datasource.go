@@ -36,7 +36,7 @@ func LogicmonitorBackendDataSource(dsSettings backend.DataSourceInstanceSettings
 
 	err := json.Unmarshal(dsSettings.JSONData, &pluginSettings)
 	if err != nil {
-		logger.Error("Error unmarshalling the Plugin Settings", err)
+		logger.Error(constants.ErrorUnmarshallingErrorData+"Plugin Settings =>", err)
 
 		return nil, err //nolint:wrapcheck
 	}
@@ -97,13 +97,28 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 		return healthRequest, nil
 	}
 
-	_, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
+	respByte, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
 	if err != nil {
 		healthRequest.Message = err.Error()
 		healthRequest.Status = backend.HealthStatusError
 
 		return healthRequest, nil //nolint:nilerr
 	}
+	var res models.ErrResponse
+	err = json.Unmarshal(respByte, &res)
+	if err != nil {
+		ds.Logger.Error(constants.ErrorUnmarshallingErrorData+"ErrResponse =>", err)
+		healthRequest.Message = err.Error()
+		healthRequest.Status = backend.HealthStatusError
+		return healthRequest, nil //nolint:nilerr
+	}
+
+	if res.Errmsg != "" && res.Errmsg != "OK" {
+		healthRequest.Message = res.Errmsg
+		healthRequest.Status = backend.HealthStatusError
+		return healthRequest, nil //nolint:nilerr
+	}
+
 	healthRequest.Status = backend.HealthStatusOk
 	healthRequest.Message = constants.AuthSuccessMsg
 	return healthRequest, nil
@@ -161,7 +176,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 	err := json.Unmarshal(req.Body, &queryModel)
 	if err != nil {
-		ds.Logger.Error("Error parsing ", err.Error())
+		ds.Logger.Error(constants.ErrorUnmarshallingErrorData+"QueryModel =>", err.Error())
 
 		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
