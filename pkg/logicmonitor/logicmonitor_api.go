@@ -3,8 +3,6 @@ package logicmonitor
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -131,29 +129,22 @@ func callRawDataAPI(queryModel *models.QueryModel, pluginSettings *models.Plugin
 	logger.Info("API Call => FrameCache size = ", cache.GetFrameDataCount())
 	logger.Info("API Call => QueryEditorCache size = ", cache.GetQueryEditorCacheDataCount())
 
-	resp, err := httpclient.Get(pluginSettings, authSettings, fullPath, logger)
+	respByte, err := httpclient.Get(pluginSettings, authSettings, fullPath, logger)
 	if err != nil {
 		logger.Error("Error from server => ", err)
 
 		return rawData, err //nolint:wrapcheck
 	}
 
-	if resp.StatusCode == http.StatusTooManyRequests {
-		return rawData, errors.New(constants.RateLimitErrMsg)
-	}
-
-	bodyText, err := ioutil.ReadAll(resp.Body)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		logger.Error("Error reading response => ", resp.Body)
-		return rawData, err //nolint:wrapcheck
-	}
-	defer resp.Body.Close()
-
-	err = json.Unmarshal(bodyText, &rawData)
+	err = json.Unmarshal(respByte, &rawData)
 	if err != nil {
 		logger.Error("Error Unmarshalling raw-data => ", err)
 
 		return rawData, err //nolint:wrapcheck
+	}
+
+	if rawData.Error != "OK" {
+		return rawData, errors.New(rawData.Error)
 	}
 
 	return rawData, nil
@@ -165,7 +156,8 @@ func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, plugin
 
 	return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
 		queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
-		strconv.FormatInt(lastFromTimeUnixTruncated, 10) + strconv.FormatInt(lastToTimeUnixTruncated, 10)
+		strconv.FormatInt(lastFromTimeUnixTruncated, 10) + strconv.FormatInt(lastToTimeUnixTruncated, 10) +
+		strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10)
 }
 
 func checkIfCallFromQueryEditor(queryModel *models.QueryModel) bool {

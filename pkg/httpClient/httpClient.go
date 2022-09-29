@@ -5,16 +5,19 @@ import (
 	"crypto/sha256"
 	b64 "encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
-	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
 
-func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) (*http.Response, error) { //nolint:lll
+func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) ([]byte, error) { //nolint:lll
 	url := fmt.Sprintf(constants.RootURL, pluginSettings.Path) + requestURL
 	client := &http.Client{} //nolint:exhaustivestruct
 
@@ -56,9 +59,17 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	// logger.Info("Hitting HTTP request with headers => ", string(reqDump), err)
 
 	newResp, err := client.Do(httpRequest)
-	if err != nil {
-		logger.Error(" Error executing => "+url, err)
 
+	respByte, err := ioutil.ReadAll(newResp.Body)
+	if err != nil {
+		logger.Error(constants.ErrorReadingResponseBody, err)
+		return nil, errors.New(constants.ErrorReadingResponseBody)
+
+	}
+	defer newResp.Body.Close()
+
+	err = handleException(newResp, err)
+	if err != nil {
 		return nil, err
 	}
 
@@ -73,7 +84,7 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 
 	// logger.Info("HTTP response => "+string(resDump), err)
 
-	return newResp, err //nolint:wrapcheck
+	return respByte, err //nolint:wrapcheck
 }
 
 func buildBearerToken(authSettings *models.AuthSettings) string {
