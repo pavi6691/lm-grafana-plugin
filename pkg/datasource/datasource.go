@@ -99,19 +99,10 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 
 	resp, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
 	if err != nil {
-		healthRequest.Message = constants.HealthAPIErrMsg
+		healthRequest.Message = err.Error()
 		healthRequest.Status = backend.HealthStatusError
 
 		return healthRequest, nil //nolint:nilerr
-	}
-
-	if resp.StatusCode == http.StatusServiceUnavailable ||
-		resp.StatusCode == http.StatusInternalServerError ||
-		resp.StatusCode == http.StatusBadRequest {
-		healthRequest.Message = constants.HostUnreachableErrMsg
-		healthRequest.Status = backend.HealthStatusError
-
-		return healthRequest, nil
 	}
 
 	// Not caching any error as we dont want the data json
@@ -120,21 +111,17 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 	json.NewDecoder(resp.Body).Decode(&deviceData) //nolint:errcheck
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusOK {
+	if deviceData.Status == http.StatusOK {
 		healthRequest.Status = backend.HealthStatusOk
 		healthRequest.Message = constants.AuthSuccessMsg
 
 		return healthRequest, nil
-	}
-
-	healthRequest.Status = backend.HealthStatusError
-
-	if resp.StatusCode == http.StatusBadRequest {
+	} else if deviceData.Status == 400 {
+		healthRequest.Status = backend.HealthStatusError
 		healthRequest.Message = constants.InvalidTokenErrMsg + deviceData.Errmsg
-		ds.Logger.Error("Invalid Token for Company or " + deviceData.Errmsg)
 	} else {
-		healthRequest.Message = constants.APIErrMsg + string(deviceData.Status)
-		ds.Logger.Error(constants.APIErrMsg, deviceData.Errmsg)
+		healthRequest.Status = backend.HealthStatusError
+		healthRequest.Message = deviceData.Errmsg
 	}
 
 	return healthRequest, nil

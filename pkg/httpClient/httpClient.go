@@ -5,13 +5,15 @@ import (
 	"crypto/sha256"
 	b64 "encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
-	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
 
 func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) (*http.Response, error) { //nolint:lll
@@ -58,8 +60,18 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	newResp, err := client.Do(httpRequest)
 	if err != nil {
 		logger.Error(" Error executing => "+url, err)
-
+		if strings.Contains(err.Error(), constants.NoSuchHostError) {
+			err = errors.New(constants.InvalidCompanyName)
+		} else if strings.Contains(err.Error(), constants.ConnectionRefused) {
+			err = errors.New(constants.NetworkError)
+		}
 		return nil, err
+	}
+
+	if newResp.StatusCode == http.StatusServiceUnavailable ||
+		newResp.StatusCode == http.StatusInternalServerError ||
+		newResp.StatusCode == http.StatusBadRequest {
+		return nil, errors.New(constants.HostUnreachableErrMsg)
 	}
 
 	// todo high priority
