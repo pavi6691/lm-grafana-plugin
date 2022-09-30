@@ -14,6 +14,8 @@ func handleException(response *http.Response, err error) error {
 			err = errors.New(constants.InvalidCompanyName)
 		} else if strings.Contains(err.Error(), constants.ConnectionRefused) || strings.Contains(err.Error(), constants.WriteTcpError) {
 			err = errors.New(constants.NetworkError)
+		} else if strings.Contains(err.Error(), constants.ConnectionTimeout) {
+			err = errors.New(constants.ConnectionTimeoutError)
 		}
 		return err
 	}

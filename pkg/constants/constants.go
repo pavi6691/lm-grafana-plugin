@@ -38,6 +38,8 @@ const (
 	WriteTcpError                     = "can't assign requested address"
 	ConnectionRefused                 = ": connection refused"
 	NetworkError                      = "Netwrok Error"
+	ConnectionTimeout                 = "timeout"
+	ConnectionTimeoutError            = "Connection Timeout, please try again"
 	ServiceUnavailable                = "Service Temporarily Unavailable"
 	InvalidCompanyName                = "Invalid company name configured"
 	APIErrMsg                         = "API Failed with status code = "
