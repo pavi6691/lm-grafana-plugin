@@ -9,6 +9,9 @@ export interface MyQuery extends DataQuery {
   hdsSelected: any;
   dataSourceSelected: any;
   instanceSelected: any[];
+  instanceSelectBy: any;
+  instanceRegex: any;
+  validInstanceRegex: boolean;
   instanceSearch: any;
   dataPointSelected: any[];
   collectInterval: number;

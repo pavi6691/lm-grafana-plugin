@@ -1,5 +1,5 @@
 import React, { SyntheticEvent, PureComponent, useState, useEffect } from 'react';
-import { Select, InlineLabel, MultiSelect, RadioButtonGroup } from '@grafana/ui';
+import { Select, InlineLabel, MultiSelect, RadioButtonGroup, Input } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from './datasource';
 import { MyDataSourceOptions, MyQuery } from './types';
@@ -107,7 +107,19 @@ export class QueryEditor extends PureComponent<Props> {
       for (var i = 0; i < result.data.data.total; i++) {
         const lm_host = result.data.data.items[i];
         if (lm_host !== undefined) {
-          hostArray.push({ value: lm_host.id.toString(), label: lm_host.name });
+          var instance = lm_host.name.substring(lm_host.name.indexOf('-') + 1)
+          if(this.props.query.instanceSelectBy === 'Regex' && this.props.query.instanceRegex !== undefined) {
+            try {
+              if(new RegExp(this.props.query.instanceRegex).test(instance)) {
+                this.props.query.validInstanceRegex = true
+                hostArray.push({ value: lm_host.id.toString(), label: instance });
+              }
+            } catch(e) {
+              this.props.query.validInstanceRegex = false
+            }
+          } else {
+            hostArray.push({ value: lm_host.id.toString(), label: instance });
+          } 
         }
       }
     } 
@@ -148,6 +160,9 @@ export class QueryEditor extends PureComponent<Props> {
     const [isDSLoading,setDsLoading] = useState(false);
     const [isInstanceLoading,setInstanceLoading] = useState(false);
     const [isDPLoading,setDPLoading] = useState(false);
+
+
+    const [instanceSelectBy,setInstanceSelectBy] = useState<any>();
 
     const [isAutocompleteEnabled] = useState(true); // currently only used for group and hosts. as it requires devices datasource id, for datasources using standerd api
 
@@ -223,7 +238,7 @@ export class QueryEditor extends PureComponent<Props> {
     //   });
     // }
     
-    const loadInstances = () => {
+    const loadAutoCompleteInstances = () => {
       setInstanceLoading(true)
       this.callPromise(PathEndpoints.AutoCompleteInstanceReq, true).then((rs) => {
         setInstanceOptions(rs);
@@ -231,6 +246,27 @@ export class QueryEditor extends PureComponent<Props> {
         setInstanceLoading(false);
       });
     }
+
+    const loadAllInstances = () => {
+      setInstanceLoading(true)
+      const routePath = PathEndpoints.AllInstanceReq;
+      return new Promise<Array<SelectableValue<string>>>((resolve) => {
+        setTimeout(() => {
+          resolve(this.doInstanceRequest(routePath));
+        }, 1500);
+      }).then((rs) => {
+        setInstanceOptions(rs);
+        if(this.props.query.instanceSelectBy === 'Regex' && this.props.query.instanceRegex !== undefined) {
+          setInstanceSelected(rs);
+          this.props.query.instanceSelected = rs;
+          if(this.props.query.dataPointSelected) {
+            this.getRawData();
+          }
+        } 
+      }).finally(() => {
+        setInstanceLoading(false);
+      });
+    };
 
     if(isAutocompleteEnabled === false) {
       useEffect(() => {
@@ -252,22 +288,9 @@ export class QueryEditor extends PureComponent<Props> {
       }, []);
       useEffect(() => {
         if(dataSourceSelected) {
-          const loadInstancesAsyncOptions = () => {
-            setInstanceLoading(true)
-            const routePath = PathEndpoints.AllInstanceReq;
-            return new Promise<Array<SelectableValue<string>>>((resolve) => {
-              setTimeout(() => {
-                resolve(this.doInstanceRequest(routePath));
-              }, 1500);
-            });
-          };
-          loadInstancesAsyncOptions().then((rs) => {
-            setInstanceOptions(rs);
-            setDataSourceSelected(this.props.query.dataSourceSelected)
-          }).finally(() => {
-            setInstanceLoading(false);
-          });
+          loadAllInstances()
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [dataSourceSelected]);
     } else {
       useEffect(() => {
@@ -291,12 +314,16 @@ export class QueryEditor extends PureComponent<Props> {
       }, [groupSelected]);
       useEffect(() => {
         if(dataSourceSelected) {
-          if(this.props.query.instanceSearch) {
-            setDataSourceSelected(SELECT_ALL_STAR);
+          // if(this.props.query.instanceSearch) {
+          //   setDataSourceSelected(SELECT_ALL_STAR);
+          // } else {
+          //   this.props.query.instanceSearch = SELECT_ALL_STAR
+          // }
+          if(this.props.query.instanceSelectBy === 'Regex') {
+            loadAllInstances();
           } else {
-            this.props.query.instanceSearch = SELECT_ALL_STAR
+            loadAutoCompleteInstances();
           }
-          loadInstances();
         }
       }, [dataSourceSelected]);
     }
@@ -339,11 +366,15 @@ export class QueryEditor extends PureComponent<Props> {
     }, [dataSourceSelected]);
     if(this.props.query.deviceGroup === undefined) {
       this.props.query.deviceGroup = true
-      this.props.query.typeSelected = "Normal";
+      this.props.query.typeSelected = 'Normal';
+      setInstanceSelectBy('Select')
+    } else if (instanceSelectBy === undefined) {
+      setInstanceSelectBy(this.props.query.instanceSelectBy)
     }
+
     return (
       <div style={{ width: '100%' }}>
-        {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5 }}>
+        {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>Resource Type</InlineLabel>
           <RadioButtonGroup
             onChange={(v) => {
@@ -358,7 +389,7 @@ export class QueryEditor extends PureComponent<Props> {
             fullWidth={true}
           />
         </div>}
-        {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5 }}>
+        {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>Groups</InlineLabel>
           <Select
             menuPlacement={'bottom'}
@@ -384,7 +415,7 @@ export class QueryEditor extends PureComponent<Props> {
             }}
           />
         </div>}
-        <div style={{ display: 'flex', marginBottom:5 }}>
+        <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>Resources</InlineLabel>
           <Select
             menuPlacement={'bottom'}
@@ -424,7 +455,7 @@ export class QueryEditor extends PureComponent<Props> {
             }}
           />
           </div>
-          <div style={{ display: 'flex', marginBottom:5 }}>
+          <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>DataSources</InlineLabel>
           <Select
             menuPlacement={'bottom'}
@@ -454,9 +485,20 @@ export class QueryEditor extends PureComponent<Props> {
             }}
           />
           </div>
-          <div style={{ display: 'flex', marginBottom:5 }}>
+          <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5}}>
           <InlineLabel width={15}>Instances</InlineLabel>
-          <MultiSelect
+          <RadioButtonGroup
+            onChange={(v) => {
+              this.props.query.instanceSelectBy = v;
+              setInstanceSelectBy(v)
+            }}
+            value={instanceSelectBy}
+            options={[
+              { label: 'Select', value: 'Select' },
+              { label: 'Regex', value: 'Regex' }, ]}
+            fullWidth={false}
+          />
+          {this.props.query.instanceSelectBy === 'Select' && <MultiSelect
             menuPlacement={'bottom'}
             defaultValue={this.props.query.instanceSelected}
             options={instanceOptions}
@@ -470,7 +512,7 @@ export class QueryEditor extends PureComponent<Props> {
             onInputChange={(v) => {
               if(isAutocompleteEnabled && v.length >  0) {
                 this.props.query.instanceSearch = v;
-                loadInstances();
+                loadAutoCompleteInstances();
               }
             }}
             onChange={(v) => {
@@ -480,7 +522,18 @@ export class QueryEditor extends PureComponent<Props> {
                 this.getRawData();
               }
             }}
-          />
+          /> }
+          {this.props.query.instanceSelectBy === 'Regex' && this.props.query.dataSourceSelected !== undefined &&
+            <Input
+              placeholder='Type regex expression'
+              value={this.props.query.instanceRegex}
+              onChange={(e) => {
+                  this.props.query.instanceRegex = e.currentTarget.value
+                  loadAllInstances()
+                }     
+               }
+            />}
+          {instanceSelected !== undefined  && this.props.query.instanceSelectBy === 'Regex' && <InlineLabel width={'auto'}>{instanceSelected?.length} Instaces</InlineLabel>}
           </div>
           <div style={{ display: 'flex', marginBottom:5 }}>
           <InlineLabel width={15}>DataPoints</InlineLabel>
