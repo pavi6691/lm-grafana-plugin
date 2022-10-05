@@ -27,6 +27,11 @@ const (
 )
 
 const (
+	Regex  = "Regex"
+	Select = "Select"
+)
+
+const (
 	NoCompanyNameEnteredErrMsg        = "Company name not entered"
 	NoAuthenticationErrMsg            = "Please Authenticate to use the plugin"
 	BearerTokenEmptyErrMsg            = "Please enter bearer token"

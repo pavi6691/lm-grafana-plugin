@@ -20,9 +20,7 @@ func handleException(response *http.Response, err error) error {
 		return err
 	}
 
-	if response.StatusCode == http.StatusServiceUnavailable ||
-		response.StatusCode == http.StatusInternalServerError ||
-		response.StatusCode == http.StatusBadRequest { // todo check exact error code when service is down
+	if response.StatusCode == http.StatusServiceUnavailable { // todo check exact error code when service is down
 		return errors.New(constants.ServiceUnavailable)
 	}
 

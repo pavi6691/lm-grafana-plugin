@@ -31,24 +31,26 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 		return response
 	}
 
-	// Set the unique id
-	uniqueID := getUniqueID(&queryModel, &query, pluginSettings)
-	logger.Info("The Unique id is = ", uniqueID)
+	// Set the temp query Editor ID rame id
+	tempQueryEditorID := getQueryEditorTempID(&queryModel, &query, pluginSettings)
+	// Set the frame id
+	frameID := getFrameID(&queryModel, tempQueryEditorID)
 
 	ifCallFromQueryEditor := checkIfCallFromQueryEditor(&queryModel)
-	logger.Info("Call is from Query Editor = ", ifCallFromQueryEditor)
+	logger.Info("Call is from Query Editor = ", ifCallFromQueryEditor, queryModel.CollectInterval, queryModel.LastQueryEditedTimeStamp)
 
-	// Check if data is in temporary cache. user has recently updated panel,
-	// Keeps data for datasource interval time from the last time user has updated query
-	response, err := getFromQueryEditorTempCache(uniqueID, &queryModel, logger)
-	if err == nil {
-		return response
-	}
-
-	// Gets Data from local cache for the selected query.
-	// currently data is present in frameCache and query is updated, it should not refer frameCache
-	if !ifCallFromQueryEditor {
-		response, err = getFromFrameCache(uniqueID, logger)
+	if ifCallFromQueryEditor {
+		// Check if data is in temporary cache. user has recently updated panel,
+		// Keeps data for datasource interval time from the last time user has updated query
+		response, err := getFromQueryEditorTempCache(tempQueryEditorID, &queryModel, logger)
+		if err == nil {
+			return response
+		}
+	} else {
+		// Gets Data from local cache for the selected query.
+		// currently data is present in frameCache and query is updated, it should not refer frameCache
+		logger.Info("The Frame id is = ", frameID)
+		response, err := getFromFrameCache(frameID, logger)
 		if err == nil {
 			return response
 		}
@@ -66,12 +68,12 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	response = BuildFrameFromMultiInstance(&queryModel, &rawData.Data)
 	// Add data to cache
 	if ifCallFromQueryEditor {
-		cache.StoreQueryEditorTempData(uniqueID, queryModel.CollectInterval, rawData.Data)
-		// time-range passed ds interval, but still not last query-updated time is
-		// After few seconds if query-updated timestamp is passed the ds interval
-		cache.StoreFrame(uniqueID, queryModel.CollectInterval, response.Frames)
+		cache.StoreQueryEditorTempData(tempQueryEditorID, queryModel.CollectInterval, rawData.Data)
+		// Get updated data when entry is deleted from temp cache. this avoids old data in frame cache being returned
+		// as there can be timerange change/query change that frame cache is not udpated yet
+		cache.StoreFrame(frameID, queryModel.CollectInterval, response.Frames)
 	} else {
-		cache.StoreFrame(uniqueID, queryModel.CollectInterval, response.Frames)
+		cache.StoreFrame(frameID, queryModel.CollectInterval, response.Frames)
 	}
 
 	return response
@@ -150,14 +152,17 @@ func callRawDataAPI(queryModel *models.QueryModel, pluginSettings *models.Plugin
 	return rawData, nil
 }
 
-func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string { //nolint:lll
+func getQueryEditorTempID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string { //nolint:lll
 	lastFromTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.From, queryModel.CollectInterval)
 	lastToTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.To, queryModel.CollectInterval)
 
 	return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
 		queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
-		strconv.FormatInt(lastFromTimeUnixTruncated, 10) + strconv.FormatInt(lastToTimeUnixTruncated, 10) +
-		strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10)
+		strconv.FormatInt(lastFromTimeUnixTruncated, 10) + strconv.FormatInt(lastToTimeUnixTruncated, 10)
+}
+
+func getFrameID(queryModel *models.QueryModel, tempQueryEditorID string) string { //nolint:lll
+	return tempQueryEditorID + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10)
 }
 
 func checkIfCallFromQueryEditor(queryModel *models.QueryModel) bool {

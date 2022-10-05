@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	. "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
@@ -15,18 +18,29 @@ import (
 // BuildFrameFromMultiInstance = build frames for response with multi instances ref @MultiInstanceDataUrl
 func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.MultiInstanceData) backend.DataResponse {
 	response := backend.DataResponse{} //nolint:exhaustivestruct
-
-	for _, instance := range queryModel.InstanceSelected {
-		key := instance.Label
-
-		_, ok := data.Instances[data.DataSourceName+string(DataSourceAndInstanceDelim)+instance.Label]
-		if ok {
-			key = data.DataSourceName + string(DataSourceAndInstanceDelim) + instance.Label
+	if queryModel.ValidInstanceRegex && queryModel.InstanceSelectBy == constants.Regex {
+		for key := range data.Instances {
+			instace := key[strings.IndexByte(key, '-')+1:]
+			match, err := regexp.MatchString(queryModel.InstanceRegex, instace)
+			if err == nil && match {
+				dataFrame := buildFrame(instace, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
+				// add the frames to the response.
+				response.Frames = append(response.Frames, dataFrame)
+			}
 		}
+	} else {
+		for _, instance := range queryModel.InstanceSelected {
+			key := instance.Label
 
-		dataFrame := buildFrame(instance.Label, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
-		// add the frames to the response.
-		response.Frames = append(response.Frames, dataFrame)
+			_, ok := data.Instances[data.DataSourceName+string(DataSourceAndInstanceDelim)+instance.Label]
+			if ok {
+				key = data.DataSourceName + string(DataSourceAndInstanceDelim) + instance.Label
+			}
+
+			dataFrame := buildFrame(instance.Label, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
+			// add the frames to the response.
+			response.Frames = append(response.Frames, dataFrame)
+		}
 	}
 
 	return response

@@ -56,6 +56,9 @@ type QueryModel struct {
 	WithStreaming            bool               `json:"withStreaming"`
 	CollectInterval          int64              `json:"collectInterval"`
 	LastQueryEditedTimeStamp int64              `json:"lastQueryEditedTimeStamp"`
+	InstanceSelectBy         string             `json:"instanceSelectBy"`
+	InstanceRegex            string             `json:"instanceRegex"`
+	ValidInstanceRegex       bool               `json:"validInstanceRegex"`
 }
 
 type Error struct {

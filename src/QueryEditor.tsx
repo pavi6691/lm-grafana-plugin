@@ -7,13 +7,15 @@ import { RestClient } from 'RestClient';
 import {PathEndpoints} from './PathEndpoints';
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 const SELECT_ALL_STAR = "*";
-
+var instanceCache: any
 export class QueryEditor extends PureComponent<Props> {
-  getRawData = () => {
+  getRawData = (runQuery: boolean) => {
     const { onChange, query, onRunQuery } = this.props;
     query.lastQueryEditedTimeStamp = new Date().getTime();
     onChange({ ...query });
-    onRunQuery();
+    if(runQuery) {
+      onRunQuery();
+    }
   };
 
   onWithStreamingChange = (event: SyntheticEvent<HTMLInputElement>) => {
@@ -101,9 +103,15 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   async doInstanceRequest(urll: String) {
-    const result = await new RestClient().httpGet(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isBearerEnabled, this.props.query);
+    var result: any
+    if(instanceCache === undefined) {
+       result = await new RestClient().httpGet(urll,  this.props.datasource.id, this.props.datasource.url || '', this.props.datasource.storedJsonData.isBearerEnabled, this.props.query);
+    } else {
+       result = instanceCache
+    }
     const hostArray = [];
     if(result.data) {
+      instanceCache = result
       for (var i = 0; i < result.data.data.total; i++) {
         const lm_host = result.data.data.items[i];
         if (lm_host !== undefined) {
@@ -163,6 +171,7 @@ export class QueryEditor extends PureComponent<Props> {
 
 
     const [instanceSelectBy,setInstanceSelectBy] = useState<any>();
+    const [instanceRegex,setInstanceRegex] = useState<any>();
 
     const [isAutocompleteEnabled] = useState(true); // currently only used for group and hosts. as it requires devices datasource id, for datasources using standerd api
 
@@ -259,8 +268,8 @@ export class QueryEditor extends PureComponent<Props> {
         if(this.props.query.instanceSelectBy === 'Regex' && this.props.query.instanceRegex !== undefined) {
           setInstanceSelected(rs);
           this.props.query.instanceSelected = rs;
-          if(this.props.query.dataPointSelected) {
-            this.getRawData();
+          if(this.props.query.dataPointSelected && this.props.query.dataPointSelected.length > 0) {
+            this.getRawData(true);
           }
         } 
       }).finally(() => {
@@ -325,7 +334,7 @@ export class QueryEditor extends PureComponent<Props> {
             loadAutoCompleteInstances();
           }
         }
-      }, [dataSourceSelected]);
+      }, [dataSourceSelected,instanceSelectBy]);
     }
 
     useEffect(() => {
@@ -367,7 +376,8 @@ export class QueryEditor extends PureComponent<Props> {
     if(this.props.query.deviceGroup === undefined) {
       this.props.query.deviceGroup = true
       this.props.query.typeSelected = 'Normal';
-      setInstanceSelectBy('Select')
+      setInstanceSelectBy('Regex')
+      this.props.query.instanceSelectBy = "Regex"
     } else if (instanceSelectBy === undefined) {
       setInstanceSelectBy(this.props.query.instanceSelectBy)
     }
@@ -400,11 +410,17 @@ export class QueryEditor extends PureComponent<Props> {
             isLoading={isGroupLoading}
             noOptionsMessage='No groups found'
             loadingMessage='Fetching groups...'
-            value={groupSelected}
             allowCustomValue={true}
+            onCreateOption={(v) => {
+              if(v !== null && this.props.query.groupSelected !== v) {
+                var value = {label:v,value:0}
+                setGroup(value)
+              }
+            }}
+            value={groupSelected}
             onInputChange={(v) => {
               if(v.length >  0) {
-                this.props.query.groupSelected.label = v;
+                this.props.query.groupSelected = {label:v}
                 loadGroups();
               }
             }}
@@ -426,11 +442,10 @@ export class QueryEditor extends PureComponent<Props> {
             isLoading={isDeviceLoading}
             noOptionsMessage='No resources found'
             loadingMessage='Fetching resources...'
-            allowCustomValue={true}
             value={hostSelected}
             onInputChange={(v) => {
               if(isAutocompleteEnabled && v.length >  0) {
-                this.props.query.hostSelected.label = v;
+                this.props.query.hostSelected = {label:v}
                 loadHosts();
               }
             }}
@@ -485,7 +500,7 @@ export class QueryEditor extends PureComponent<Props> {
             }}
           />
           </div>
-          <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5}}>
+          <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>Instances</InlineLabel>
           <RadioButtonGroup
             onChange={(v) => {
@@ -494,8 +509,9 @@ export class QueryEditor extends PureComponent<Props> {
             }}
             value={instanceSelectBy}
             options={[
+              { label: 'Regex', value: 'Regex' },
               { label: 'Select', value: 'Select' },
-              { label: 'Regex', value: 'Regex' }, ]}
+               ]}
             fullWidth={false}
           />
           {this.props.query.instanceSelectBy === 'Select' && <MultiSelect
@@ -508,7 +524,6 @@ export class QueryEditor extends PureComponent<Props> {
             loadingMessage='Fetching instances...'
             noOptionsMessage='No instances found'
             value={instanceSelected}
-            allowCustomValue={true}
             onInputChange={(v) => {
               if(isAutocompleteEnabled && v.length >  0) {
                 this.props.query.instanceSearch = v;
@@ -518,22 +533,28 @@ export class QueryEditor extends PureComponent<Props> {
             onChange={(v) => {
               setInstanceSelected(v);
               this.props.query.instanceSelected = v;
-              if(this.props.query.dataPointSelected) {
-                this.getRawData();
+              if(this.props.query.dataPointSelected && this.props.query.dataPointSelected.length > 0) {
+                this.getRawData(true);
               }
             }}
           /> }
-          {this.props.query.instanceSelectBy === 'Regex' && this.props.query.dataSourceSelected !== undefined &&
-            <Input
+          {this.props.query.instanceSelectBy === undefined || this.props.query.instanceSelectBy === 'Regex' &&
+            <Input 
+              defaultValue={this.props.query.instanceRegex}
+              invalid={!this.props.query.validInstanceRegex && this.props.query.instanceRegex !== undefined}
               placeholder='Type regex expression'
-              value={this.props.query.instanceRegex}
+              value={instanceRegex}
               onChange={(e) => {
+                setInstanceRegex(e.currentTarget.value)
                   this.props.query.instanceRegex = e.currentTarget.value
-                  loadAllInstances()
+                  if(this.props.query.dataSourceSelected !== undefined) {
+                    loadAllInstances()
+                  }
                 }     
                }
-            />}
-          {instanceSelected !== undefined  && this.props.query.instanceSelectBy === 'Regex' && <InlineLabel width={'auto'}>{instanceSelected?.length} Instaces</InlineLabel>}
+            /> 
+            }
+            {<InlineLabel width={'auto'}>{instanceSelected === undefined? 0 : instanceSelected?.length} Instaces</InlineLabel>}
           </div>
           <div style={{ display: 'flex', marginBottom:5 }}>
           <InlineLabel width={15}>DataPoints</InlineLabel>
@@ -551,7 +572,7 @@ export class QueryEditor extends PureComponent<Props> {
             onChange={(v) => {
               setDataPointSelected(v);
               this.props.query.dataPointSelected = v;
-              this.getRawData();
+              this.getRawData(true);
             }}
           />
         </div>

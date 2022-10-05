@@ -180,7 +180,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 
 		return sender.Send(&backend.CallResourceResponse{ //nolint:wrapcheck,exhaustivestruct
 			Status: http.StatusInternalServerError,
-			Body:   []byte(fmt.Sprintf(constants.InternalServerErrorJsonErrMessage, constants.URLConfigurationErrMsg)),
+			Body:   []byte(fmt.Sprintf(constants.InternalServerErrorJsonErrMessage, constants.ErrorUnmarshallingErrorData+"QueryModel")),
 		})
 	}
 
