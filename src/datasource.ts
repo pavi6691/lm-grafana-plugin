@@ -24,6 +24,13 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     this.id = instanceSettings.id;
     this.storedJsonData = instanceSettings.jsonData;
   }
+  // applyTemplateVariables(query: MyQuery, scopedVars: ScopedVars): Record<string, any> {
+  //   const interpolatedQuery: MyQuery = {
+  //     ...query,
+  //     hostSelected: getTemplateSrv().replace(query.hostSelected),
+  //   };
+  //   return interpolatedQuery;
+  // }
 
   // Query Rest service using stream model
 
@@ -180,3 +187,4 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
   //   }
   // }
 }
+
