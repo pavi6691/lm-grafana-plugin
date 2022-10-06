@@ -209,7 +209,7 @@ export class QueryEditor extends PureComponent<Props> {
       setDataSourceSelected(null);
       setInstanceSelected([]);
       setDataPointSelected([]);
-
+      setInstanceRegex('')
       setHostOptions(undefined);
       setDsOptions(undefined);
       setInstanceOptions(undefined);
@@ -222,6 +222,7 @@ export class QueryEditor extends PureComponent<Props> {
       this.props.query.instanceSelected = null as any;
       this.props.query.instanceSearch = null as any;
       this.props.query.dataPointSelected = null as any;
+      this.props.query.instanceRegex = null as any
     }
 
     const loadHosts = () => {
@@ -455,7 +456,7 @@ export class QueryEditor extends PureComponent<Props> {
                 setDataSourceSelected(null);
                 setInstanceSelected([]);
                 setDataPointSelected([]);
-
+                setInstanceRegex('')
                 setDsOptions(undefined);
                 setInstanceOptions(undefined);
                 setDpOptions(undefined);
@@ -466,6 +467,7 @@ export class QueryEditor extends PureComponent<Props> {
                 this.props.query.instanceSelected = null as any;
                 this.props.query.instanceSearch = null as any;
                 this.props.query.dataPointSelected = null as any;
+                this.props.query.instanceRegex = null as any
               }
             }}
           />
@@ -487,7 +489,7 @@ export class QueryEditor extends PureComponent<Props> {
                 setDataSourceSelected(v);
                 setInstanceSelected([]);
                 setDataPointSelected([]);
-
+                setInstanceRegex('')
                 setInstanceOptions(undefined);
                 setDpOptions(undefined);
 
@@ -496,6 +498,7 @@ export class QueryEditor extends PureComponent<Props> {
                 this.props.query.instanceSelected = null as any;
                 this.props.query.instanceSearch = null as any;
                 this.props.query.dataPointSelected = null as any;
+                this.props.query.instanceRegex = null as any
               }
             }}
           />
@@ -541,7 +544,7 @@ export class QueryEditor extends PureComponent<Props> {
           {this.props.query.instanceSelectBy === undefined || this.props.query.instanceSelectBy === 'Regex' &&
             <Input 
               defaultValue={this.props.query.instanceRegex}
-              invalid={!this.props.query.validInstanceRegex && this.props.query.instanceRegex !== undefined}
+              invalid={!this.props.query.validInstanceRegex && this.props.query.instanceRegex !== undefined && this.props.query.instanceRegex !== null}
               placeholder='Type regex expression'
               value={instanceRegex}
               onChange={(e) => {
