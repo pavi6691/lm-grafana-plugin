@@ -35,8 +35,12 @@ func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.Mul
 			_, ok := data.Instances[data.DataSourceName+string(DataSourceAndInstanceDelim)+instance.Label]
 			if ok {
 				key = data.DataSourceName + string(DataSourceAndInstanceDelim) + instance.Label
+			} else {
+				_, ok = data.Instances[data.DataSourceName+instance.Label]
+				if ok {
+					key = data.DataSourceName + instance.Label
+				}
 			}
-
 			dataFrame := buildFrame(instance.Label, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
 			// add the frames to the response.
 			response.Frames = append(response.Frames, dataFrame)
