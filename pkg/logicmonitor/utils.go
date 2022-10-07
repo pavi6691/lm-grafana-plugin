@@ -32,6 +32,17 @@ func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.Mul
 		for _, instance := range queryModel.InstanceSelected {
 			key := instance.Label
 
+			/* form key for the instance map, below is the instance name formation from santaba
+			if (ds.getHasMultiInstance()) {
+				if (ds.getName().endsWith("-")) {
+			        builder.setName(ds.getName() + alias);
+				} else {
+			        builder.setName(ds.getName() + "-" + alias);
+			    }
+			} else {
+			    builder.setName(ds.getName() + alias);
+			}
+			*/
 			_, ok := data.Instances[data.DataSourceName+string(DataSourceAndInstanceDelim)+instance.Label]
 			if ok {
 				key = data.DataSourceName + string(DataSourceAndInstanceDelim) + instance.Label
