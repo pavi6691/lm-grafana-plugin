@@ -210,6 +210,7 @@ export class QueryEditor extends PureComponent<Props> {
       setInstanceSelected([]);
       setDataPointSelected([]);
       setInstanceRegex('')
+      setGroupOptions(undefined)
       setHostOptions(undefined);
       setDsOptions(undefined);
       setInstanceOptions(undefined);
@@ -453,21 +454,25 @@ export class QueryEditor extends PureComponent<Props> {
             onChange={(v) => {
               if(v !== null && this.props.query.hostSelected !== v ) {
                 setHostSelected(v);
-                setDataSourceSelected(null);
-                setInstanceSelected([]);
-                setDataPointSelected([]);
-                setInstanceRegex('')
-                setDsOptions(undefined);
-                setInstanceOptions(undefined);
-                setDpOptions(undefined);
-
                 this.props.query.hostSelected = v;
-                this.props.query.dataSourceSelected = null as any;
-                this.props.query.hdsSelected = null as any;
-                this.props.query.instanceSelected = null as any;
-                this.props.query.instanceSearch = null as any;
-                this.props.query.dataPointSelected = null as any;
-                this.props.query.instanceRegex = null as any
+                if(this.props.query.dataPointSelected && this.props.query.dataPointSelected.length > 0) {
+                  this.getRawData(true);
+                } else {
+                  setDataSourceSelected(null);
+                  setInstanceSelected([]);
+                  setDataPointSelected([]);
+                  setInstanceRegex('')
+                  setDsOptions(undefined);
+                  setInstanceOptions(undefined);
+                  setDpOptions(undefined);
+  
+                  this.props.query.dataSourceSelected = null as any;
+                  this.props.query.hdsSelected = null as any;
+                  this.props.query.instanceSelected = null as any;
+                  this.props.query.instanceSearch = null as any;
+                  this.props.query.dataPointSelected = null as any;
+                  this.props.query.instanceRegex = null as any
+                }
               }
             }}
           />
