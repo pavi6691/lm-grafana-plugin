@@ -44,6 +44,7 @@ const (
 	ConnectionRefused                 = ": connection refused"
 	NetworkError                      = "Netwrok Error"
 	ConnectionTimeout                 = "timeout"
+	ConnectionUnReachable             = "connect: network is unreachable"
 	ConnectionTimeoutError            = "Connection Timeout, please try again"
 	ServiceUnavailable                = "Service Temporarily Unavailable"
 	InvalidCompanyName                = "Invalid company name configured"
