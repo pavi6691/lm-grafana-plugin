@@ -44,6 +44,19 @@ type MultiInstanceRawData struct {
 	Status int               `json:"status,omitempty"`
 }
 
+type HostDataSourceItems struct {
+	Id int64 `json:"id,omitempty"`
+}
+
+type HostDataSourceData struct {
+	Total int                   `json:"total,omitempty"`
+	Items []HostDataSourceItems `json:"items,omitempty"`
+}
+
+type HostDataSource struct {
+	Data HostDataSourceData `json:"data,omitempty"`
+}
+
 type QueryModel struct {
 	TypeSelected             string             `json:"typeSelected"`
 	GroupSelected            LabelIntValue      `json:"groupSelected"`
@@ -59,6 +72,7 @@ type QueryModel struct {
 	InstanceSelectBy         string             `json:"instanceSelectBy"`
 	InstanceRegex            string             `json:"instanceRegex"`
 	ValidInstanceRegex       bool               `json:"validInstanceRegex"`
+	IsQueryInterpolated      bool               `json:"isQueryInterpolated"`
 }
 
 type Error struct {

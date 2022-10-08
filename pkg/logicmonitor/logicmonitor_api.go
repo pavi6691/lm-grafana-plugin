@@ -30,6 +30,35 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 
 		return response
 	}
+	logger.Info("queryModel.interpolatedQuery? => ", queryModel.IsQueryInterpolated)
+	if queryModel.IsQueryInterpolated {
+		requestURL := BuildURLReplacingQueryParams(constants.HostDataSourceReq, &queryModel, nil)
+		if requestURL == "" {
+			logger.Error(constants.URLConfigurationErrMsg)
+			return response
+		}
+		var respByte []byte
+		respByte, response.Error = httpclient.Get(pluginSettings, authSettings, requestURL, logger)
+		if response.Error != nil {
+			logger.Error("Error from server => ", response.Error)
+			return response
+		}
+		var hdsReponse models.HostDataSource
+		response.Error = json.Unmarshal(respByte, &hdsReponse)
+		if response.Error != nil {
+			logger.Error(constants.ErrorUnmarshallingErrorData+"hdsReponse =>", response.Error.Error())
+			return response
+		}
+		if hdsReponse.Data.Total == 1 {
+			queryModel.HdsSelected = hdsReponse.Data.Items[0].Id
+		} else if hdsReponse.Data.Total > 1 {
+			response.Error = errors.New(constants.MoreThanOneHostDataSources + queryModel.DataSourceSelected.Label)
+			return response
+		} else {
+			response.Error = errors.New(constants.HostHasNoMatchingDataSource + queryModel.DataSourceSelected.Label)
+			return response
+		}
+	}
 
 	// Set the temp query Editor ID rame id
 	tempQueryEditorID := getQueryEditorTempID(&queryModel, &query, pluginSettings)
@@ -125,9 +154,6 @@ func callRawDataAPI(queryModel *models.QueryModel, pluginSettings *models.Plugin
 	fullPath := BuildURLReplacingQueryParams(constants.RawDataMultiInstanceReq, queryModel, &query)
 
 	//todo remove the loggers
-	logger.Debug("The full path is = ", fullPath)
-	logger.Debug("Calling API for query = ", queryModel)
-	logger.Debug("Cache size = ", cache.GetFrameDataCount())
 	logger.Info("API Call => FrameCache size = ", cache.GetFrameDataCount())
 	logger.Info("API Call => QueryEditorCache size = ", cache.GetQueryEditorCacheDataCount())
 

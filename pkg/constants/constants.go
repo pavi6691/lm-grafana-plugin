@@ -57,6 +57,8 @@ const (
 	RateLimitErrMsg                   = "Rate limit exceeded"
 	AuthSuccessMsg                    = "Authentication Success"
 	InternalServerErrorJsonErrMessage = `{ "error":"%s"}`
+	MoreThanOneHostDataSources        = "Selected variable host on variable has more than one hostDatasources for ds = "
+	HostHasNoMatchingDataSource       = "Selected variable host has no matching datasource = "
 )
 
 // These constants are from PathEndpoints.ts.
@@ -68,6 +70,7 @@ const (
 	ServiceOrDeviceGroupReq = "ServiceOrDeviceGroupReq"
 	AutoCompleteGroupReq    = "AutoCompleteGroupReq"
 	DataSourceReq           = "DataSourceReq"
+	HostDataSourceReq       = "HostDataSourceReq"
 	DataPointReq            = "DataPointReq"
 
 	// RawDataSingleInstaceReq Below constants are not used in Frontend.
@@ -91,6 +94,8 @@ const (
 	AutoCompleteHostsURL = `autocomplete/names?queryToken=display&needIdPrefix=true&size=10&_=%d&type=hostChain&query=%s&parentsFilters=` //nolint:lll
 
 	DataSourceURL = `device/devices/%s/devicedatasources?format=json&fields=id,dataSourceDisplayName,dataSourceId,instanceNumber&size=-1&filter=instanceNumber>:1` //nolint:lll
+
+	HostDataSourceURL = `device/devices/%s/devicedatasources?format=json&fields=id&size=-1&filter=dataSourceId:%d` //nolint:lll
 
 	InstanceParentFilters = `[{"filter":"%s","exclude":false,"token":"fullname","matchFilterAsGlob":true},{"filter":"%s","exclude":false,"token":"display","matchFilterAsGlob":true},{"filter":"%s","exclude":false,"token":"display","matchFilterAsGlob":false}]` //nolint:lll
 

@@ -121,6 +121,8 @@ func BuildURLReplacingQueryParams(request string, qm *models.QueryModel, query *
 				qm.HostSelected.Label, qm.DataSourceSelected.Label))
 	case DataSourceReq:
 		return fmt.Sprintf(DataSourceURL, qm.HostSelected.Value)
+	case HostDataSourceReq:
+		return fmt.Sprintf(HostDataSourceURL, qm.HostSelected.Value, qm.DataSourceSelected.Ds)
 	case DataPointReq:
 		return fmt.Sprintf(DataPointURL, qm.DataSourceSelected.Ds)
 	case HealthCheckReq:

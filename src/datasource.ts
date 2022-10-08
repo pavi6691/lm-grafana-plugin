@@ -2,7 +2,7 @@ import {
   // DataQueryRequest,
   // DataQueryResponse,
   // DataSourceApi,
-  DataSourceInstanceSettings,
+  DataSourceInstanceSettings, ScopedVars,
   // FieldType,
   // MutableDataFrame,
   // LoadingState,
@@ -12,7 +12,7 @@ import { MyQuery, MyDataSourceOptions } from './types';
 // import { Observable, merge } from 'rxjs';
 // import { getBackendSrv } from '@grafana/runtime';
 // import { RestClient } from 'RestClient';
-import { DataSourceWithBackend } from '@grafana/runtime';
+import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 
 export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptions> {
   url?: string;
@@ -24,13 +24,33 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     this.id = instanceSettings.id;
     this.storedJsonData = instanceSettings.jsonData;
   }
-  // applyTemplateVariables(query: MyQuery, scopedVars: ScopedVars): Record<string, any> {
-  //   const interpolatedQuery: MyQuery = {
-  //     ...query,
-  //     hostSelected: getTemplateSrv().replace(query.hostSelected),
-  //   };
-  //   return interpolatedQuery;
-  // }
+
+  applyTemplateVariables(query: MyQuery, scopedVars: ScopedVars): Record<string, any> {
+    if(getTemplateSrv().getVariables().length === 0) {
+      return query;
+    }
+    const hostId = this.getValuesForVariable(getTemplateSrv().getVariables()[0].name)
+    if(query.hostSelected.value === hostId.value) {
+      return query
+    }
+    var interpolatedQuery: MyQuery = {
+      ...query,
+      hostSelected: hostId,
+      isQueryInterpolated: true
+    };
+    return interpolatedQuery
+  }
+
+  getValuesForVariable(name: string): any {
+    var values
+    // Instead of interpolating the string, we collect the values in an array.
+    getTemplateSrv().replace(`$${name}`, {}, (value: string | string[]) => {
+      values = {label:'', value:value}
+      // We don't really care about the string here.
+      return '';
+    });
+    return values;
+  }
 
   // Query Rest service using stream model
 

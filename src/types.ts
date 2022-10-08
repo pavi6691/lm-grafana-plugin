@@ -16,6 +16,7 @@ export interface MyQuery extends DataQuery {
   dataPointSelected: any[];
   collectInterval: number;
   lastQueryEditedTimeStamp: any;
+  isQueryInterpolated: boolean
   withStreaming: boolean;
 }
 export const defaultQuery: Partial<MyQuery> = {
