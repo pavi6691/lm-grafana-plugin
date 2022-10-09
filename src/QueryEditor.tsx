@@ -490,7 +490,7 @@ export class QueryEditor extends PureComponent<Props> {
             noOptionsMessage='No datasources found'
             value={dataSourceSelected}
             onChange={(v) => {
-              if(v !== null) {
+              if(v !== null && this.props.query.dataSourceSelected !== v) {
                 setDataSourceSelected(v);
                 setInstanceSelected([]);
                 setDataPointSelected([]);
