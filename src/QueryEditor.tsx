@@ -550,7 +550,7 @@ export class QueryEditor extends PureComponent<Props> {
             <Input 
               defaultValue={this.props.query.instanceRegex}
               invalid={!this.props.query.validInstanceRegex && this.props.query.instanceRegex !== undefined && this.props.query.instanceRegex !== null}
-              placeholder='Type regex expression'
+              placeholder='/.*-(?<text>.*)-(?<value>.*)-.*/'
               value={instanceRegex}
               onChange={(e) => {
                 setInstanceRegex(e.currentTarget.value)
