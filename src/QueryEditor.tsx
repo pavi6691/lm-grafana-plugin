@@ -562,7 +562,7 @@ export class QueryEditor extends PureComponent<Props> {
                }
             /> 
             }
-            {<InlineLabel width={'auto'}>{instanceSelected === undefined? 0 : instanceSelected?.length} Instaces</InlineLabel>}
+            {<InlineLabel width={'auto'}>{this.props.query.instanceSelected === undefined? 0 : this.props.query.instanceSelected?.length} Instaces</InlineLabel>}
           </div>
           <div style={{ display: 'flex', marginBottom:5 }}>
           <InlineLabel width={15}>DataPoints</InlineLabel>
