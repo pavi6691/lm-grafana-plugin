@@ -41,7 +41,7 @@ const (
 	HealthAPIURLErrMsg                = "Issue with Health API URL configuration"
 	NoSuchHostError                   = ": no such host"
 	WriteTcpError                     = "can't assign requested address"
-	ConnectionRefused                 = ": connection refused"
+	ConnectionRefused                 = "connection"
 	NetworkError                      = "Netwrok Error"
 	ConnectionTimeout                 = "timeout"
 	ConnectionUnReachable             = "connect: network is unreachable"
