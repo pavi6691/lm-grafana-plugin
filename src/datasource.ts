@@ -45,7 +45,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     var values
     // Instead of interpolating the string, we collect the values in an array.
     getTemplateSrv().replace(`$${name}`, {}, (value: string | string[]) => {
-      values = {label:'', value:value}
+      values = {label:value, value:value}
       // We don't really care about the string here.
       return '';
     });

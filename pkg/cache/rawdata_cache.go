@@ -24,6 +24,10 @@ func GetFrameDataCount() int {
 	return frameDataCache.Count()
 }
 
+func StoreErrorFrame(key string, collectInterval int64, errFrame error) {
+	frameDataCache.SetWithTTL(key, errFrame, time.Duration(collectInterval)*time.Second)
+}
+
 func StoreFrame(key string, collectInterval int64, frame data.Frames) {
 	frameDataCache.SetWithTTL(key, frame, time.Duration(collectInterval)*time.Second)
 }

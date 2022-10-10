@@ -73,7 +73,8 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 		// Keeps data for datasource interval time from the last time user has updated query
 		response, err := getFromQueryEditorTempCache(tempQueryEditorID, &queryModel, logger, matchedInstances)
 		if !matchedInstances && len(response.Frames) == 0 {
-			response.Error = errors.New("Instance are matching with selected host")
+			response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
+			return response
 		}
 		if err == nil {
 			return response
@@ -98,16 +99,18 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	}
 	response = BuildFrameFromMultiInstance(&queryModel, &rawData.Data, matchedInstances)
 	if !matchedInstances && len(response.Frames) == 0 {
-		response.Error = errors.New("Instance are matching with selected host")
-	}
-	// Add data to cache
-	if ifCallFromQueryEditor {
-		cache.StoreQueryEditorTempData(tempQueryEditorID, queryModel.CollectInterval, rawData.Data)
-		// Get updated data when entry is deleted from temp cache. this avoids old data in frame cache being returned
-		// as there can be timerange change/query change that frame cache is not udpated yet
-		cache.StoreFrame(frameID, queryModel.CollectInterval, response.Frames)
+		response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
+		cache.StoreErrorFrame(frameID, queryModel.CollectInterval, response.Error)
 	} else {
-		cache.StoreFrame(frameID, queryModel.CollectInterval, response.Frames)
+		// Add data to cache
+		if ifCallFromQueryEditor {
+			cache.StoreQueryEditorTempData(tempQueryEditorID, queryModel.CollectInterval, rawData.Data)
+			// Get updated data when entry is deleted from temp cache. this avoids old data in frame cache being returned
+			// as there can be timerange change/query change that frame cache is not udpated yet
+			cache.StoreFrame(frameID, queryModel.CollectInterval, response.Frames)
+		} else {
+			cache.StoreFrame(frameID, queryModel.CollectInterval, response.Frames)
+		}
 	}
 
 	return response
@@ -140,8 +143,11 @@ func getFromFrameCache(uniqueID string, logger log.Logger) (backend.DataResponse
 		logger.Info("From FrameCache => FrameCache size = ", cache.GetFrameDataCount())
 		logger.Info("From FrameCache => QueryEditorCache size = ", cache.GetQueryEditorCacheDataCount())
 
-		response.Frames = frameValue.(data.Frames)
-
+		if df, ok := frameValue.(data.Frames); ok {
+			response.Frames = df
+		} else {
+			response.Error = frameValue.(error)
+		}
 		return response, nil
 	}
 

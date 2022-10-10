@@ -453,12 +453,8 @@ export class QueryEditor extends PureComponent<Props> {
             }}
             onChange={(v) => {
               if(v !== null && this.props.query.hostSelected !== v ) {
-                setHostSelected(v);
-                this.props.query.hostSelected = v;
-                if(this.props.query.dataPointSelected && this.props.query.dataPointSelected.length > 0) {
-                  this.props.query.isQueryInterpolated = true
-                  this.getRawData(true);
-                } else {
+                  setHostSelected(v);
+                  this.props.query.hostSelected = v;
                   setDataSourceSelected(null);
                   setInstanceSelected([]);
                   setDataPointSelected([]);
@@ -475,7 +471,7 @@ export class QueryEditor extends PureComponent<Props> {
                   this.props.query.instanceRegex = null as any
                 }
               }
-            }}
+            }
           />
           </div>
           <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
@@ -492,6 +488,7 @@ export class QueryEditor extends PureComponent<Props> {
             value={dataSourceSelected}
             onChange={(v) => {
               if(v !== null && this.props.query.dataSourceSelected !== v) {
+                instanceCache = undefined
                 setDataSourceSelected(v);
                 setInstanceSelected([]);
                 setDataPointSelected([]);
