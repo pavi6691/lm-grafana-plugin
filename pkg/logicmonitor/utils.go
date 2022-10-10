@@ -16,13 +16,14 @@ import (
 )
 
 // BuildFrameFromMultiInstance = build frames for response with multi instances ref @MultiInstanceDataUrl
-func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.MultiInstanceData) backend.DataResponse {
+func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.MultiInstanceData, matchedInstances bool) backend.DataResponse {
 	response := backend.DataResponse{} //nolint:exhaustivestruct
 	if queryModel.ValidInstanceRegex && queryModel.InstanceSelectBy == constants.Regex {
 		for key := range data.Instances {
 			instace := key[strings.IndexByte(key, '-')+1:]
 			match, err := regexp.MatchString(queryModel.InstanceRegex, instace)
 			if err == nil && match {
+				matchedInstances = true
 				dataFrame := buildFrame(instace, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
 				// add the frames to the response.
 				response.Frames = append(response.Frames, dataFrame)
@@ -51,6 +52,10 @@ func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.Mul
 				if ok {
 					key = data.DataSourceName + instance.Label
 				}
+			}
+			_, ok = data.Instances[data.DataSourceName+instance.Label]
+			if ok {
+				matchedInstances = true
 			}
 			dataFrame := buildFrame(instance.Label, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
 			// add the frames to the response.

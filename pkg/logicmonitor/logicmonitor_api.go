@@ -67,11 +67,14 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 
 	ifCallFromQueryEditor := checkIfCallFromQueryEditor(&queryModel)
 	logger.Info("Call is from Query Editor = ", ifCallFromQueryEditor, queryModel.CollectInterval, queryModel.LastQueryEditedTimeStamp)
-
+	matchedInstances := false
 	if ifCallFromQueryEditor {
 		// Check if data is in temporary cache. user has recently updated panel,
 		// Keeps data for datasource interval time from the last time user has updated query
-		response, err := getFromQueryEditorTempCache(tempQueryEditorID, &queryModel, logger)
+		response, err := getFromQueryEditorTempCache(tempQueryEditorID, &queryModel, logger, matchedInstances)
+		if !matchedInstances && len(response.Frames) == 0 {
+			response.Error = errors.New("Instance are matching with selected host")
+		}
 		if err == nil {
 			return response
 		}
@@ -93,8 +96,10 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 
 		return response
 	}
-
-	response = BuildFrameFromMultiInstance(&queryModel, &rawData.Data)
+	response = BuildFrameFromMultiInstance(&queryModel, &rawData.Data, matchedInstances)
+	if !matchedInstances && len(response.Frames) == 0 {
+		response.Error = errors.New("Instance are matching with selected host")
+	}
 	// Add data to cache
 	if ifCallFromQueryEditor {
 		cache.StoreQueryEditorTempData(tempQueryEditorID, queryModel.CollectInterval, rawData.Data)
@@ -110,7 +115,7 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 
 // This if block serves while updating query, temporarily stores results of rawdata for all instance and data points.
 // that avoid rest calls while selecting multiple instances/datapoints
-func getFromQueryEditorTempCache(uniqueID string, qm *models.QueryModel, logger log.Logger) (backend.DataResponse, error) { //nolint:lll
+func getFromQueryEditorTempCache(uniqueID string, qm *models.QueryModel, logger log.Logger, matchedInstances bool) (backend.DataResponse, error) { //nolint:lll
 	cacheData, present := cache.GetQueryEditorCacheData(uniqueID)
 	if present {
 		//todo remove the loggers
@@ -118,8 +123,7 @@ func getFromQueryEditorTempCache(uniqueID string, qm *models.QueryModel, logger 
 		logger.Info("From QueryEditorCache => QueryEditorCache size = ", cache.GetQueryEditorCacheDataCount())
 
 		rawData := cacheData.(models.MultiInstanceData)
-
-		return BuildFrameFromMultiInstance(qm, &rawData), nil
+		return BuildFrameFromMultiInstance(qm, &rawData, matchedInstances), nil
 	}
 
 	return backend.DataResponse{}, errors.New(constants.DataNotPresentEditorCacheErrMsg)
