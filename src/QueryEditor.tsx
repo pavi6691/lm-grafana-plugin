@@ -512,6 +512,7 @@ export class QueryEditor extends PureComponent<Props> {
           <InlineLabel width={15}>Instances</InlineLabel>
           <RadioButtonGroup
             onChange={(v) => {
+              setInstanceSelected([])
               this.props.query.instanceSelectBy = v;
               setInstanceSelectBy(v)
             }}
