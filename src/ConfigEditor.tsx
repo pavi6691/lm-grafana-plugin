@@ -113,15 +113,15 @@ export class ConfigEditor extends PureComponent<Props, State> {
       <div className="gf-form-group">
         <div className="gf-form" style={{ display: 'flex', marginBottom:50 }}>
           <FormField
-            label="Company Name"
+            label="Portal Name"
             labelWidth={10}
             inputWidth={20}
             onChange={this.onPathChange}
             value={jsonData.path || ''}
-            placeholder="Comapny Name"
+            placeholder="Portal Name"
           />
         </div>
-        
+
         {Constants.EnableBearerToken && <div className="box">
           <div style={{ display: 'flex', marginBottom:2 }}>
               <h4>Authentication</h4>
@@ -173,7 +173,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
               <h4>LMv1 Token</h4>
           </div>
         </div>}
-       {(jsonData.isLMV1Enabled) && <div className="gf-form-inline"> 
+       {(jsonData.isLMV1Enabled) && <div className="gf-form-inline">
           <div className="gf-form">
             <FormField
               value={jsonData.accessId || ''}
@@ -185,7 +185,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
             />
           </div>
         </div>}
-        {(jsonData.isLMV1Enabled) && <div className="gf-form-inline"> 
+        {(jsonData.isLMV1Enabled) && <div className="gf-form-inline">
           <div className="gf-form">
             <SecretFormField
               isConfigured={(secureJsonFields && secureJsonFields.accessKey) as boolean} 

@@ -162,7 +162,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
   //     if(query.groupSelected === undefined || query.groupSelected == null) {
   //       throw new Error("Please select group")
   //     }
-  
+
   //     if(query.hostSelected === undefined || query.hostSelected == null) {
   //       throw new Error("Please select host")
   //     }

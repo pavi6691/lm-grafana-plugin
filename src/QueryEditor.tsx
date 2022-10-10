@@ -129,7 +129,7 @@ export class QueryEditor extends PureComponent<Props> {
             }
           } else {
             hostArray.push({ value: lm_host.id.toString(), label: instance });
-          } 
+          }
         }
       }
     } 
@@ -175,7 +175,7 @@ export class QueryEditor extends PureComponent<Props> {
     const [instanceSelectBy,setInstanceSelectBy] = useState<any>();
     const [instanceRegex,setInstanceRegex] = useState<any>();
 
-    const [isAutocompleteEnabled] = useState(Constants.EnableAutocomplete); 
+    const [isAutocompleteEnabled] = useState(Constants.EnableAutocomplete);
 
     const optionStartsWithValue = (option: SelectableValue<string>, value: string) =>
             option.label?.toString().startsWith(value) || false;
@@ -275,7 +275,7 @@ export class QueryEditor extends PureComponent<Props> {
           if(this.props.query.validInstanceRegex && this.props.query.dataPointSelected && this.props.query.dataPointSelected.length > 0) {
             this.getRawData(true);
           }
-        } 
+        }
       }).finally(() => {
         setInstanceLoading(false);
       });
@@ -393,7 +393,7 @@ export class QueryEditor extends PureComponent<Props> {
     if(this.props.query.enableHostVariable === undefined) {
       this.props.query.enableHostVariable = true
     }
-    
+
     return (
       <div style={{ width: '100%' }}>
         {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
@@ -411,8 +411,8 @@ export class QueryEditor extends PureComponent<Props> {
             fullWidth={true}
           />
           {Constants.EnableHostVariableFeature && <div style={{ width: '100%', display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
-          <InlineLabel 
-            width={'auto'} 
+          <InlineLabel
+            width={'auto'}
             tooltip={Constants.ToolTipForHostVariableSwitch}>Allow Host Variable</InlineLabel>
           <InlineSwitch
             width={'auto'}
@@ -493,7 +493,7 @@ export class QueryEditor extends PureComponent<Props> {
                   setDsOptions(undefined);
                   setInstanceOptions(undefined);
                   setDpOptions(undefined);
-  
+
                   this.props.query.dataSourceSelected = null as any;
                   this.props.query.hdsSelected = null as any;
                   this.props.query.instanceSelected = null as any;
@@ -578,7 +578,7 @@ export class QueryEditor extends PureComponent<Props> {
             }}
           /> }
           {this.props.query.instanceSelectBy === undefined || this.props.query.instanceSelectBy === 'Regex' &&
-            <Input 
+            <Input
               defaultValue={this.props.query.instanceRegex}
               invalid={!this.props.query.validInstanceRegex && this.props.query.instanceRegex !== undefined && this.props.query.instanceRegex !== null}
               placeholder='/.*-(?<text>.*)-(?<value>.*)-.*/'
@@ -589,9 +589,9 @@ export class QueryEditor extends PureComponent<Props> {
                   if(this.props.query.dataSourceSelected !== undefined) {
                     loadAllInstances()
                   }
-                }     
+                }
                }
-            /> 
+            />
             }
             {/* {<InlineLabel width={'auto'}>{this.props.query.instanceSelected === undefined? 0 : this.props.query.instanceSelected?.length} Instaces</InlineLabel>} */}
           </div>
