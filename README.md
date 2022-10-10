@@ -12,7 +12,12 @@ Visualize your LogicMonitor metrics with the leading open source software for ti
 - Multiple dataPoints are supported on single query.
 - Caching of APIs with TTL of Polling interval to avoid Rate Limits.
 - Caching of queries across multiple users.
-
+# Rate Limit
+- Each Query in the Panel will result to a single API call (multiple instance multiple datapoints)
+- API results are cached for the collection interval. So if the refresh interval is less than default LM polling interval (1m) , the data will be   brought from cache. 
+- This will result in less API requests even when the dashboard interval is lesser than 1m.
+- Cache is optimized to handle more frequent requests while user editing queries and making changes.
+- A change in the timeframe will trigger a new API call.
 
 ## Getting started
 - Once data source plugin is installed, click on Add Data Source
