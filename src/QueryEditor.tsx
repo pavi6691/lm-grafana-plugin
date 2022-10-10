@@ -270,7 +270,7 @@ export class QueryEditor extends PureComponent<Props> {
         if(this.props.query.instanceSelectBy === 'Regex' && this.props.query.instanceRegex !== undefined) {
           setInstanceSelected(rs);
           this.props.query.instanceSelected = rs;
-          if(this.props.query.dataPointSelected && this.props.query.dataPointSelected.length > 0) {
+          if(this.props.query.validInstanceRegex && this.props.query.dataPointSelected && this.props.query.dataPointSelected.length > 0) {
             this.getRawData(true);
           }
         } 
