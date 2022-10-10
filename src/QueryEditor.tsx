@@ -456,6 +456,7 @@ export class QueryEditor extends PureComponent<Props> {
                 setHostSelected(v);
                 this.props.query.hostSelected = v;
                 if(this.props.query.dataPointSelected && this.props.query.dataPointSelected.length > 0) {
+                  this.props.query.isQueryInterpolated = true
                   this.getRawData(true);
                 } else {
                   setDataSourceSelected(null);
