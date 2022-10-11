@@ -26,7 +26,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
   }
 
   applyTemplateVariables(query: MyQuery, scopedVars: ScopedVars): Record<string, any> {
-    if(getTemplateSrv().getVariables().length === 0) {
+    if(getTemplateSrv().getVariables().length === 0 || query.variableSupport !== true) {
       return query;
     }
     const hostId = this.getValuesForVariable(getTemplateSrv().getVariables()[0].name)

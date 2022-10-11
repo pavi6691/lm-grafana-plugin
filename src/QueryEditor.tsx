@@ -1,5 +1,5 @@
 import React, { SyntheticEvent, PureComponent, useState, useEffect } from 'react';
-import { Select, InlineLabel, MultiSelect, RadioButtonGroup, Input } from '@grafana/ui';
+import { Select, InlineLabel, MultiSelect, RadioButtonGroup, Input, InlineSwitch } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from './datasource';
 import { MyDataSourceOptions, MyQuery } from './types';
@@ -18,10 +18,9 @@ export class QueryEditor extends PureComponent<Props> {
     }
   };
 
-  onWithStreamingChange = (event: SyntheticEvent<HTMLInputElement>) => {
-    const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, withStreaming: event.currentTarget.checked });
-    onRunQuery();
+  variableSupportChange = (event: SyntheticEvent<HTMLInputElement>) => {
+    const { onChange, query } = this.props;
+    onChange({ ...query, variableSupport: event.currentTarget.checked });
   };
 
   async doAutoCompleteRequest(urll: String, idAsPrifix: boolean) {
@@ -380,10 +379,10 @@ export class QueryEditor extends PureComponent<Props> {
       this.props.query.typeSelected = 'Normal';
       setInstanceSelectBy('Regex')
       this.props.query.instanceSelectBy = "Regex"
+      this.props.query.variableSupport = true
     } else if (instanceSelectBy === undefined) {
       setInstanceSelectBy(this.props.query.instanceSelectBy)
     }
-
     return (
       <div style={{ width: '100%' }}>
         {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
@@ -399,6 +398,15 @@ export class QueryEditor extends PureComponent<Props> {
               { label: 'Devices', value: 'Normal' },
               { label: 'Services', value: 'BizService' }, ]}
             fullWidth={true}
+          />
+          <InlineSwitch
+            width={40}
+            high={10}
+            default={this.props.query.variableSupport}
+            value={this.props.query.variableSupport}
+            label="VariableSupport"
+            showLabel={true}
+            onChange={this.variableSupportChange}
           />
         </div>}
         {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
