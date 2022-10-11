@@ -72,7 +72,7 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 		// Check if data is in temporary cache. user has recently updated panel,
 		// Keeps data for datasource interval time from the last time user has updated query
 		response, err := getFromQueryEditorTempCache(tempQueryEditorID, &queryModel, logger, matchedInstances)
-		if !matchedInstances && len(response.Frames) == 0 {
+		if !matchedInstances && len(response.Frames) == 0 && err == nil {
 			response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
 			return response
 		}
