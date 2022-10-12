@@ -59,7 +59,7 @@ const (
 	InternalServerErrorJsonErrMessage = `{ "error":"%s"}`
 	MoreThanOneHostDataSources        = "Selected variable host on variable has more than one hostDatasources for ds = "
 	HostHasNoMatchingDataSource       = "Selected variable host has no matching datasource = %s. Tip : Disable host variable to use host in the query"
-	InstancesNotMatchingWithHosts     = "No instances are matching with regex"
+	InstancesNotMatchingWithHosts     = "No instances are matching with regex or no instances are selected"
 )
 
 // These constants are from PathEndpoints.ts.
