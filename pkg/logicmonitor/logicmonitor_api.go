@@ -3,6 +3,7 @@ package logicmonitor
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -55,7 +56,7 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 			response.Error = errors.New(constants.MoreThanOneHostDataSources + queryModel.DataSourceSelected.Label)
 			return response
 		} else {
-			response.Error = errors.New(constants.HostHasNoMatchingDataSource + queryModel.DataSourceSelected.Label)
+			response.Error = errors.New(fmt.Sprintf(constants.HostHasNoMatchingDataSource, queryModel.DataSourceSelected.Label))
 			return response
 		}
 	}

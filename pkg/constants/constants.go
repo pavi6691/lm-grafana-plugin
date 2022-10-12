@@ -58,7 +58,7 @@ const (
 	AuthSuccessMsg                    = "Authentication Success"
 	InternalServerErrorJsonErrMessage = `{ "error":"%s"}`
 	MoreThanOneHostDataSources        = "Selected variable host on variable has more than one hostDatasources for ds = "
-	HostHasNoMatchingDataSource       = "Selected variable host has no matching datasource = "
+	HostHasNoMatchingDataSource       = "Selected variable host has no matching datasource = %s. Tip : Disable host variable to use host in the query"
 	InstancesNotMatchingWithHosts     = "No instances are matching with regex"
 )
 
