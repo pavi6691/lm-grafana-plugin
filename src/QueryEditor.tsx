@@ -19,8 +19,11 @@ export class QueryEditor extends PureComponent<Props> {
   };
 
   variableSupportChange = (event: SyntheticEvent<HTMLInputElement>) => {
-    const { onChange, query } = this.props;
-    onChange({ ...query, variableSupport: event.currentTarget.checked });
+    const { onChange, query, onRunQuery } = this.props;
+    onChange({ ...query,variableSupport: event.currentTarget.checked });
+    if(query.dataPointSelected !== undefined && query.dataPointSelected.length > 0){
+      onRunQuery();
+    }
   };
 
   async doAutoCompleteRequest(urll: String, idAsPrifix: boolean) {
@@ -379,9 +382,11 @@ export class QueryEditor extends PureComponent<Props> {
       this.props.query.typeSelected = 'Normal';
       setInstanceSelectBy('Regex')
       this.props.query.instanceSelectBy = "Regex"
-      this.props.query.variableSupport = true
     } else if (instanceSelectBy === undefined) {
       setInstanceSelectBy(this.props.query.instanceSelectBy)
+    }
+    if(this.props.query.variableSupport === undefined) {
+      this.props.query.variableSupport = true
     }
     return (
       <div style={{ width: '100%' }}>
@@ -399,15 +404,18 @@ export class QueryEditor extends PureComponent<Props> {
               { label: 'Services', value: 'BizService' }, ]}
             fullWidth={true}
           />
+          <InlineLabel 
+            width={'auto'} 
+            tooltip={'Currently single variable on dashboard is allowed. which is considered to be host. use custom type to add hostname and id as key value pair.  There are two reasons this flag can be disabled so that to get data for this graph. 1) If selected host from variable is not mathcing with datasource selected in this query. 2) Instance names not matching with regex/selection made'}>Use Host Variable</InlineLabel>
           <InlineSwitch
-            width={40}
-            high={10}
+            width={'auto'}
             default={this.props.query.variableSupport}
             value={this.props.query.variableSupport}
-            label="VariableSupport"
-            showLabel={true}
             onChange={this.variableSupportChange}
           />
+          <div style={{ width: '100%' }}>
+            <InlineLabel> </InlineLabel>
+          </div>
         </div>}
         {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>Groups</InlineLabel>
@@ -571,7 +579,7 @@ export class QueryEditor extends PureComponent<Props> {
             }
             {<InlineLabel width={'auto'}>{this.props.query.instanceSelected === undefined? 0 : this.props.query.instanceSelected?.length} Instaces</InlineLabel>}
           </div>
-          <div style={{ display: 'flex', marginBottom:5 }}>
+          <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>DataPoints</InlineLabel>
           <MultiSelect
             menuPlacement={'bottom'}
