@@ -58,7 +58,7 @@ const (
 	AuthSuccessMsg                    = "Authentication Success"
 	InternalServerErrorJsonErrMessage = `{ "error":"%s"}`
 	MoreThanOneHostDataSources        = "Selected variable host on variable has more than one hostDatasources for ds = "
-	HostHasNoMatchingDataSource       = "Selected variable host has no matching datasource = %s. Tip : Disable host variable to use host in the query"
+	HostHasNoMatchingDataSource       = "Selected variable host has no matching datasource = %s OR no instances. Tip : Disable host variable to use host in the query"
 	InstancesNotMatchingWithHosts     = "No instances are matching with regex or no instances are selected"
 )
 
@@ -96,7 +96,7 @@ const (
 
 	DataSourceURL = `device/devices/%s/devicedatasources?format=json&fields=id,dataSourceDisplayName,dataSourceId,instanceNumber&size=-1&filter=instanceNumber>:1` //nolint:lll
 
-	HostDataSourceURL = `device/devices/%s/devicedatasources?format=json&fields=id&size=-1&filter=dataSourceId:%d` //nolint:lll
+	HostDataSourceURL = `device/devices/%s/devicedatasources?format=json&fields=id&size=-1&filter=dataSourceId:%d,instanceNumber>:1` //nolint:lll
 
 	InstanceParentFilters = `[{"filter":"%s","exclude":false,"token":"fullname","matchFilterAsGlob":true},{"filter":"%s","exclude":false,"token":"display","matchFilterAsGlob":true},{"filter":"%s","exclude":false,"token":"display","matchFilterAsGlob":false}]` //nolint:lll
 
