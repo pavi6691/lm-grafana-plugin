@@ -406,7 +406,7 @@ export class QueryEditor extends PureComponent<Props> {
           />
           <InlineLabel 
             width={'auto'} 
-            tooltip={'Currently single variable on dashboard is allowed. which is considered to be host. use custom type to add hostname and id as key value pair.  There are two reasons this flag can be disabled so that to get data for this graph. 1) If selected host from variable is not mathcing with datasource selected in this query. 2) Instance names not matching with regex/selection made'}>Use Host Variable</InlineLabel>
+            tooltip={'Currently single variable on dashboard is allowed. which is considered to be host. use custom type to add hostname and id as key value pair.  There are two reasons this flag can be disabled so that to get data for this graph using host in the query. 1) If selected host from variable is not mathcing with datasource selected in this query. 2) Instance names not matching with regex/selection made'}>Allow Host Variable</InlineLabel>
           <InlineSwitch
             width={'auto'}
             default={this.props.query.variableSupport}

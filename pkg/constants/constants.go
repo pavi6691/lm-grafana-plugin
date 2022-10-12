@@ -121,4 +121,5 @@ const (
 const (
 	DataSourceAndInstanceDelim byte   = '-'
 	InstantAndDpDelim          string = " ~ "
+	CacheTTLInSeconds          int64  = 60
 )

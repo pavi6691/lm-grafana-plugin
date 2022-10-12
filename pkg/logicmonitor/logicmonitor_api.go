@@ -108,9 +108,9 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 			cache.StoreQueryEditorTempData(tempQueryEditorID, queryModel.CollectInterval, rawData.Data)
 			// Get updated data when entry is deleted from temp cache. this avoids old data in frame cache being returned
 			// as there can be timerange change/query change that frame cache is not udpated yet
-			cache.StoreFrame(frameID, queryModel.CollectInterval, response.Frames)
+			cache.StoreFrame(frameID, constants.CacheTTLInSeconds, response.Frames)
 		} else {
-			cache.StoreFrame(frameID, queryModel.CollectInterval, response.Frames)
+			cache.StoreFrame(frameID, constants.CacheTTLInSeconds, response.Frames)
 		}
 	}
 
