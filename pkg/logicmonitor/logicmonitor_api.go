@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -68,13 +69,12 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 
 	ifCallFromQueryEditor := checkIfCallFromQueryEditor(&queryModel)
 	logger.Info("Call is from Query Editor = ", ifCallFromQueryEditor, queryModel.CollectInterval, queryModel.LastQueryEditedTimeStamp)
-	matchedInstances := false
 	if ifCallFromQueryEditor {
 		// Check if data is in temporary cache. user has recently updated panel,
 		// Keeps data for datasource interval time from the last time user has updated query
-		response, err := getFromQueryEditorTempCache(tempQueryEditorID, &queryModel, logger, matchedInstances)
-		if !matchedInstances && len(response.Frames) == 0 && err == nil {
-			response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
+		response, err := getFromQueryEditorTempCache(tempQueryEditorID, &queryModel, logger)
+		if err != nil && err.Error() == constants.InstancesNotMatchingWithHosts {
+			response.Error = err
 			return response
 		}
 		if err == nil {
@@ -89,23 +89,52 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 			return response
 		}
 	}
+	var tr []models.PendingTimeRange
+	if constants.EnableFetchDataTimeRangeGiven {
+		tr = GetTimeRanges(query, queryModel.CollectInterval, frameID)
+	} else {
+		var pt models.PendingTimeRange
+		tr = append(tr, pt)
+	}
 
-	// Data is not present in the cache so fresh data needs to be fetched
-	rawData, err := callRawDataAPI(&queryModel, pluginSettings, authSettings, query, logger)
-	if err != nil {
-		response.Error = err
-		logger.Error("Error calling rawData API ", err)
-
+	rawDataMap := make(map[int]*models.MultiInstanceRawData)
+	wg := &sync.WaitGroup{}
+	for i := 0; i < len(tr) && response.Error == nil; i++ {
+		if constants.EnableFetchDataTimeRangeGiven {
+			query.TimeRange.From = time.UnixMilli(tr[i].From * 1000)
+			query.TimeRange.To = time.UnixMilli(tr[i].To * 1000)
+		}
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, j int, query backend.DataQuery) {
+			// Data is not present in the cache so fresh data needs to be fetched
+			rawData, err := callRawDataAPI(&queryModel, pluginSettings, authSettings, query, logger)
+			if err != nil {
+				response.Error = err
+				logger.Error("Error calling rawData API => ", response.Error)
+			}
+			rawDataMap[j] = &rawData
+			wg.Done()
+		}(wg, i, query)
+	}
+	wg.Wait()
+	if response.Error != nil {
 		return response
 	}
-	response = BuildFrameFromMultiInstance(&queryModel, &rawData.Data, matchedInstances)
-	if !matchedInstances && len(response.Frames) == 0 {
+	var matchedInstances bool
+	var tempMap = make(map[string]*data.Frame)
+	for i := 0; i < len(rawDataMap); i++ {
+		tempMap, matchedInstances = BuildFrameFromMultiInstance(frameID, &queryModel, &rawDataMap[i].Data, tempMap, logger)
+	}
+	if !matchedInstances && len(tempMap) == 0 {
 		response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
 		cache.StoreErrorFrame(frameID, queryModel.CollectInterval, response.Error)
 	} else {
+		for _, frame := range tempMap {
+			response.Frames = append(response.Frames, frame)
+		}
 		// Add data to cache
 		if ifCallFromQueryEditor {
-			cache.StoreQueryEditorTempData(tempQueryEditorID, queryModel.CollectInterval, rawData.Data)
+			cache.StoreQueryEditorTempData(tempQueryEditorID, queryModel.CollectInterval, rawDataMap)
 			// Get updated data when entry is deleted from temp cache. this avoids old data in frame cache being returned
 			// as there can be timerange change/query change that frame cache is not udpated yet
 			cache.StoreFrame(frameID, constants.CacheTTLInSeconds, response.Frames)
@@ -119,15 +148,27 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 
 // This if block serves while updating query, temporarily stores results of rawdata for all instance and data points.
 // that avoid rest calls while selecting multiple instances/datapoints
-func getFromQueryEditorTempCache(uniqueID string, qm *models.QueryModel, logger log.Logger, matchedInstances bool) (backend.DataResponse, error) { //nolint:lll
+func getFromQueryEditorTempCache(uniqueID string, qm *models.QueryModel, logger log.Logger) (backend.DataResponse, error) { //nolint:lll
+	response := backend.DataResponse{}
 	cacheData, present := cache.GetQueryEditorCacheData(uniqueID)
+	var matchedInstances bool
+	tempMap := make(map[string]*data.Frame)
 	if present {
 		//todo remove the loggers
 		logger.Info("From QueryEditorCache => FrameCache size = ", cache.GetFrameDataCount())
 		logger.Info("From QueryEditorCache => QueryEditorCache size = ", cache.GetQueryEditorCacheDataCount())
-
-		rawData := cacheData.(models.MultiInstanceData)
-		return BuildFrameFromMultiInstance(qm, &rawData, matchedInstances), nil
+		rawDataMap := cacheData.(map[int]*models.MultiInstanceRawData)
+		for i := 0; i < len(rawDataMap); i++ {
+			tempMap, matchedInstances = BuildFrameFromMultiInstance(uniqueID, qm, &rawDataMap[i].Data, tempMap, logger)
+		}
+		if !matchedInstances && len(tempMap) == 0 {
+			return response, errors.New(constants.InstancesNotMatchingWithHosts)
+		} else {
+			for _, frame := range tempMap {
+				response.Frames = append(response.Frames, frame)
+			}
+			return response, nil
+		}
 	}
 
 	return backend.DataResponse{}, errors.New(constants.DataNotPresentEditorCacheErrMsg)

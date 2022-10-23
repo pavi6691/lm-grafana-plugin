@@ -16,6 +16,9 @@ var frameDataCache = ttlcache.NewCache() //nolint:gochecknoglobals
 // this avoids multiple http calls while making selection.
 var queryEditorTempCache = ttlcache.NewCache() //nolint:gochecknoglobals
 
+// Time stamp of rawdata recieved.
+var lastTimeStamp = ttlcache.NewCache()
+
 func GetData(key string) (interface{}, bool) {
 	return frameDataCache.Get(key)
 }
@@ -32,6 +35,27 @@ func StoreFrame(key string, collectInterval int64, frame data.Frames) {
 	frameDataCache.SetWithTTL(key, frame, time.Duration(collectInterval)*time.Second)
 }
 
+func GetFrameCount(key string) int {
+	frameValue, ok := GetData(key)
+	if ok {
+		l, _ := frameValue.(data.Frames)[0].RowLen()
+		return l
+	}
+	return 0
+}
+
+func StoreLastTime(key string, time int64) {
+	lastTimeStamp.Set(key, time)
+}
+
+func GetLastTime(key string) int64 {
+	v, ok := lastTimeStamp.Get(key)
+	if ok {
+		return v.(int64)
+	}
+	return 0
+}
+
 func GetQueryEditorCacheData(key string) (interface{}, bool) {
 	return queryEditorTempCache.Get(key)
 }
@@ -40,8 +64,8 @@ func GetQueryEditorCacheDataCount() int {
 	return queryEditorTempCache.Count()
 }
 
-func StoreQueryEditorTempData(key string, collectInterval int64, data models.MultiInstanceData) {
-	queryEditorTempCache.SetWithTTL(key, data, time.Duration(collectInterval)*time.Second)
+func StoreQueryEditorTempData(key string, collectInterval int64, rawDataMap map[int]*models.MultiInstanceRawData) {
+	queryEditorTempCache.SetWithTTL(key, rawDataMap, time.Duration(collectInterval)*time.Second)
 }
 
 // GetCurrentTimeRange return currentTimeRange in minutes.

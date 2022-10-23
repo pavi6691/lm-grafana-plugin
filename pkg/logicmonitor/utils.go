@@ -8,25 +8,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	. "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
 // BuildFrameFromMultiInstance = build frames for response with multi instances ref @MultiInstanceDataUrl
-func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.MultiInstanceData, matchedInstances bool) backend.DataResponse {
-	response := backend.DataResponse{} //nolint:exhaustivestruct
+func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel, instanceData *models.MultiInstanceData, tempMap map[string]*data.Frame, logger log.Logger) (map[string]*data.Frame, bool) {
+	var matchedInstances bool = false
 	if queryModel.ValidInstanceRegex && queryModel.InstanceSelectBy == constants.Regex {
-		for key := range data.Instances {
+		for key := range instanceData.Instances {
 			instace := key[strings.IndexByte(key, '-')+1:]
 			match, err := regexp.MatchString(queryModel.InstanceRegex, instace)
 			if err == nil && match {
 				matchedInstances = true
-				dataFrame := buildFrame(instace, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
+				dataFrame := addFrameValues(uniqueID, instace, queryModel.DataPointSelected, instanceData.DataPoints, instanceData.Instances[key].Values, instanceData.Instances[key].Time, tempMap, logger) //nolint:lll
 				// add the frames to the response.
-				response.Frames = append(response.Frames, dataFrame)
+				tempMap[instace] = dataFrame
 			}
 		}
 	} else {
@@ -44,56 +46,78 @@ func BuildFrameFromMultiInstance(queryModel *models.QueryModel, data *models.Mul
 			    builder.setName(ds.getName() + alias);
 			}
 			*/
-			_, ok := data.Instances[data.DataSourceName+string(DataSourceAndInstanceDelim)+instance.Label]
+			_, ok := instanceData.Instances[instanceData.DataSourceName+string(DataSourceAndInstanceDelim)+instance.Label]
 			if ok {
-				key = data.DataSourceName + string(DataSourceAndInstanceDelim) + instance.Label
+				key = instanceData.DataSourceName + string(DataSourceAndInstanceDelim) + instance.Label
 			} else {
-				_, ok = data.Instances[data.DataSourceName+instance.Label]
+				_, ok = instanceData.Instances[instanceData.DataSourceName+instance.Label]
 				if ok {
-					key = data.DataSourceName + instance.Label
+					key = instanceData.DataSourceName + instance.Label
 				}
 			}
-			_, ok = data.Instances[data.DataSourceName+instance.Label]
+			_, ok = instanceData.Instances[instanceData.DataSourceName+instance.Label]
 			if ok {
 				matchedInstances = true
 			}
-			dataFrame := buildFrame(instance.Label, queryModel.DataPointSelected, data.DataPoints, data.Instances[key].Values, data.Instances[key].Time) //nolint:lll
+			dataFrame := addFrameValues(uniqueID, instance.Label, queryModel.DataPointSelected, instanceData.DataPoints, instanceData.Instances[key].Values, instanceData.Instances[key].Time, tempMap, logger) //nolint:lll
 			// add the frames to the response.
-			response.Frames = append(response.Frames, dataFrame)
+			tempMap[instance.Label] = dataFrame
 		}
 	}
 
-	return response
+	return tempMap, matchedInstances
 }
 
-// build frames for given datapoints, values and time
-func buildFrame(instanceName string, dataPointSelected []models.LabelIntValue, dataPoints []string, Values [][]interface{}, Time []int64) *data.Frame {
-	// create data frame response.
-	frame := data.NewFrame(ResponseStr)
+func RecordsToAppend(query backend.DataQuery, collectInterval int64, uniqueId string) int64 {
+	totalNumOfRecords := ((query.TimeRange.To.Unix() - query.TimeRange.From.Unix()) / 60) / (collectInterval / 60)
+	return totalNumOfRecords - int64(cache.GetFrameCount(uniqueId))
+}
 
-	// add fields
-	frame.Fields = append(frame.Fields,
-		data.NewField(TimeStr, nil, []time.Time{}),
-	)
-
-	for _, datapoint := range dataPointSelected {
-		frame.Fields = append(frame.Fields,
-			data.NewField(instanceName+InstantAndDpDelim+datapoint.Label, nil, []float64{}),
-		)
+func GetTimeRanges(query backend.DataQuery, collectInterval int64, uniqueId string) []models.PendingTimeRange {
+	pendingTimeRange := []models.PendingTimeRange{}
+	recordsToAppend := RecordsToAppend(query, collectInterval, uniqueId)
+	lt := cache.GetLastTime(uniqueId)
+	var from int64
+	if lt > 0 {
+		from = lt + 1
+	} else {
+		from = UnixTruncateToNearestMinute(query.TimeRange.From, 60)
 	}
+	for i := recordsToAppend; i > 500; i = i - 500 {
+		to := from + (500 * collectInterval)
+		if time.Now().Unix() < from+(500*collectInterval) {
+			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: time.Now().Unix()})
+			recordsToAppend = 0
+			break
+		} else {
+			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: from + (500 * collectInterval)})
+		}
+		recordsToAppend = recordsToAppend - 500
+		from = to + 1
+	}
+	if recordsToAppend > 0 {
+		if time.Now().Unix() < from+(recordsToAppend*collectInterval) {
+			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: time.Now().Unix()})
+		} else {
+			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: from + (recordsToAppend * collectInterval)})
+		}
+	}
+	cache.StoreLastTime(uniqueId, UnixTruncateToNearestMinute(time.Now(), 60))
+	return pendingTimeRange
+}
 
+func addFrameValues(uniqueID string, instanceName string, dataPointSelected []models.LabelIntValue, dataPoints []string, Values [][]interface{}, Time []int64, tempMap map[string]*data.Frame, logger log.Logger) *data.Frame {
 	// this dataPontMap is to keep indexs of datapoints as value,
 	// so as to get relevant value from Values array for selected data points
+	frame := getFrame(tempMap, instanceName, dataPointSelected, logger)
 	dataPontMap := make(map[string]int)
 	for i, v := range dataPoints {
 		dataPontMap[v] = i
 	}
-
 	for i, values := range Values {
 		vals := make([]interface{}, len(frame.Fields))
 		var idx = 1
 		vals[0] = time.UnixMilli(Time[i])
-
 		for _, dp := range dataPointSelected {
 			fieldIdx := dataPontMap[dp.Label]
 			if values[fieldIdx] == NoData {
@@ -105,8 +129,32 @@ func buildFrame(instanceName string, dataPointSelected []models.LabelIntValue, d
 		}
 		frame.AppendRow(vals...)
 	}
-
+	// if len(Time) > 0 && cache.GetLastTime(uniqueID) < Time[0] {
+	// 	cache.StoreTimeStamWithNewEntry(uniqueID, Time[0])
+	// }
 	return frame
+}
+
+// build frames for given datapoints, values and time. get existing frame if its for the same instance, this is in case of multiple rawdata api calls
+func getFrame(tempMap map[string]*data.Frame, instanceName string, dataPointSelected []models.LabelIntValue, logger log.Logger) *data.Frame {
+	// create data frame response.
+	val, ok := tempMap[instanceName]
+	if ok {
+		return val
+	} else {
+		frame := data.NewFrame(ResponseStr)
+		// add fields
+		frame.Fields = append(frame.Fields,
+			data.NewField(TimeStr, nil, []time.Time{}),
+		)
+		frame.RefID = instanceName
+		for _, datapoint := range dataPointSelected {
+			frame.Fields = append(frame.Fields,
+				data.NewField(instanceName+InstantAndDpDelim+datapoint.Label, nil, []float64{}),
+			)
+		}
+		return frame
+	}
 }
 
 //nolint:cyclop

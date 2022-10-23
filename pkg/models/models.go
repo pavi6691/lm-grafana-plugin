@@ -101,3 +101,8 @@ type AuthSettings struct {
 	AccessKey   string
 	BearerToken string
 }
+
+type PendingTimeRange struct {
+	From int64
+	To   int64
+}

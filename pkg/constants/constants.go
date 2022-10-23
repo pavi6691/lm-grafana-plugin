@@ -123,3 +123,7 @@ const (
 	InstantAndDpDelim          string = " ~ "
 	CacheTTLInSeconds          int64  = 60
 )
+
+const (
+	EnableFetchDataTimeRangeGiven bool = true
+)
