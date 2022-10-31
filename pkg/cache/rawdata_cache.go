@@ -17,55 +17,59 @@ var frameDataCache = ttlcache.NewCache() //nolint:gochecknoglobals
 var queryEditorTempCache = ttlcache.NewCache() //nolint:gochecknoglobals
 
 // Time stamp of rawdata recieved.
-var lastTimeStamp = ttlcache.NewCache()
+var lastRawDataEntryTimestamp = ttlcache.NewCache()
 
-func GetData(key string) (interface{}, bool) {
-	return frameDataCache.Get(key)
+var nrOfApiCallsBeforeAppendCalls = ttlcache.NewCache()
+
+func GetData(id string) (interface{}, bool) {
+	return frameDataCache.Get(id)
 }
 
 func GetFrameDataCount() int {
 	return frameDataCache.Count()
 }
 
-func StoreErrorFrame(key string, collectInterval int64, errFrame error) {
-	frameDataCache.SetWithTTL(key, errFrame, time.Duration(collectInterval)*time.Second)
-}
-
-func StoreFrame(key string, collectInterval int64, frame data.Frames) {
-	frameDataCache.SetWithTTL(key, frame, time.Duration(collectInterval)*time.Second)
+// when this is called there no errors, so clear any previous error and store data
+func StoreFrame(id string, ttl int64, frame data.Frames) {
+	frameDataCache.SetWithTTL(id, frame, time.Duration(ttl)*time.Second)
 }
 
 func GetFrameCount(key string) int {
 	frameValue, ok := GetData(key)
 	if ok {
-		l, _ := frameValue.(data.Frames)[0].RowLen()
-		return l
+		df, ok := frameValue.(data.Frames)
+		if ok {
+			l, ok := df[0].RowLen()
+			if ok == nil {
+				return l
+			}
+		}
 	}
 	return 0
 }
 
-func StoreLastTime(key string, time int64) {
-	lastTimeStamp.Set(key, time)
+func StoreLastestRawDataEntryTimestamp(key string, timeStamp int64, ttl int64) {
+	lastRawDataEntryTimestamp.SetWithTTL(key, timeStamp, time.Duration(ttl)*time.Second)
 }
 
-func GetLastTime(key string) int64 {
-	v, ok := lastTimeStamp.Get(key)
+func GetLastestRawDataEntryTimestamp(key string) int64 {
+	v, ok := lastRawDataEntryTimestamp.Get(key)
 	if ok {
 		return v.(int64)
 	}
 	return 0
 }
 
-func GetQueryEditorCacheData(key string) (interface{}, bool) {
-	return queryEditorTempCache.Get(key)
+func GetQueryEditorCacheData(id string) (interface{}, bool) {
+	return queryEditorTempCache.Get(id)
 }
 
 func GetQueryEditorCacheDataCount() int {
 	return queryEditorTempCache.Count()
 }
 
-func StoreQueryEditorTempData(key string, collectInterval int64, rawDataMap map[int]*models.MultiInstanceRawData) {
-	queryEditorTempCache.SetWithTTL(key, rawDataMap, time.Duration(collectInterval)*time.Second)
+func StoreQueryEditorTempData(id string, ttl int64, rawDataMap map[int]*models.MultiInstanceRawData) {
+	queryEditorTempCache.SetWithTTL(id, rawDataMap, time.Duration(ttl)*time.Second)
 }
 
 // GetCurrentTimeRange return currentTimeRange in minutes.

@@ -73,6 +73,7 @@ type QueryModel struct {
 	InstanceRegex            string             `json:"instanceRegex"`
 	ValidInstanceRegex       bool               `json:"validInstanceRegex"`
 	IsQueryInterpolated      bool               `json:"isQueryInterpolated"`
+	FrameCacheTTLInSeconds   int64
 }
 
 type Error struct {
@@ -105,4 +106,16 @@ type AuthSettings struct {
 type PendingTimeRange struct {
 	From int64
 	To   int64
+}
+
+type MetaData struct {
+	TempQueryEditorID                     string
+	FrameId                               string
+	IsForLastXTime                        bool
+	IsCallFromQueryEditor                 bool
+	InstanceWithLastRawDataEntryTimestamp int64
+	TimeRangeForApiCall                   []PendingTimeRange
+	ActualNumberOfCallsBeforeAppend       int
+	ApendRequest                          bool
+	MatchedInstances                      bool
 }

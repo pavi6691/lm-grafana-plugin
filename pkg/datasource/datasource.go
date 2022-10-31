@@ -89,7 +89,7 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 		return healthRequest, nil
 	}
 
-	requestURL := logicmonitor.BuildURLReplacingQueryParams(constants.HealthCheckReq, nil, nil)
+	requestURL := logicmonitor.BuildURLReplacingQueryParams(constants.HealthCheckReq, nil, 0, 0, models.MetaData{})
 	if requestURL == "" {
 		healthRequest.Message = constants.HealthAPIURLErrMsg
 		healthRequest.Status = backend.HealthStatusError
@@ -184,7 +184,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 		})
 	}
 
-	requestURL := logicmonitor.BuildURLReplacingQueryParams(req.Path, &queryModel, nil)
+	requestURL := logicmonitor.BuildURLReplacingQueryParams(req.Path, &queryModel, 0, 0, models.MetaData{})
 	if requestURL == "" {
 		ds.Logger.Error(constants.URLConfigurationErrMsg)
 

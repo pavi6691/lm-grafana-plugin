@@ -52,14 +52,18 @@ const (
 	URLConfigurationErrMsg            = "URL configuration missing in Backend"
 	ErrorReadingResponseBody          = "Error reading response Body = "
 	ErrorUnmarshallingErrorData       = "Error Unmarshalling "
-	DataNotPresentCacheErrMsg         = "Data not present in Cache"
+	DataNotPresentCacheErrMsg         = "Data not present in FrameCache"
+	InvalidFormatOfDataInFrameCache   = "Invalidate data format in FrameCache"
 	DataNotPresentEditorCacheErrMsg   = "Data not present in Editor Cache"
+	CallApiAndAppendToEditorCache     = "Append new enrie/s to data in editorCache...."
+	CallApiAndAppendToFrameCache      = "Append to data in  FrameCache..."
 	RateLimitErrMsg                   = "Rate limit exceeded"
+	APICallSMoreThanRateLimit         = "%d API calls required! causes rate limit error, please reduce the time range"
 	AuthSuccessMsg                    = "Authentication Success"
 	InternalServerErrorJsonErrMessage = `{ "error":"%s"}`
 	MoreThanOneHostDataSources        = "Selected variable host on variable has more than one hostDatasources for ds = "
 	HostHasNoMatchingDataSource       = "Selected variable host has no matching datasource = %s OR no instances. Tip : Disable host variable to use host in the query"
-	InstancesNotMatchingWithHosts     = "No instances are matching with regex or no instances are selected"
+	InstancesNotMatchingWithHosts     = "no instances are matching with regex or no instances are selected"
 )
 
 // These constants are from PathEndpoints.ts.
@@ -111,6 +115,8 @@ const (
 
 	RawDataMultiInstanceURL = "device/devices/%s/devicedatasources/%d/data?start=%d&end=%d"
 
+	RawDataMultiInstanceURLWithDpFilter = "device/devices/%s/devicedatasources/%d/data?start=%d&end=%d&datapoints=%s"
+
 	// AllHostURL = Get All Hosts.
 	AllHostURL = "device/devices?format=json&fields=id,displayName&size=-1"
 
@@ -125,5 +131,9 @@ const (
 )
 
 const (
-	EnableFetchDataTimeRangeGiven bool = true
+	EnableFetchDataTimeRange                    = false
+	QueryEditorCacheTTLInMinutes                = 2
+	AdditionalFrameCacheTTLInMinutes            = 2
+	LastXMunitesCheckForFrameIdCalculationInSec = 90
+	NumberOfRecordsWithRateLimit                = 500
 )
