@@ -6,7 +6,6 @@ import (
 	"github.com/ReneKroon/ttlcache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
 // frameDataCache store frame data. The TTL is till the Polling interval.
@@ -19,8 +18,6 @@ var queryEditorTempCache = ttlcache.NewCache() //nolint:gochecknoglobals
 // Time stamp of rawdata recieved.
 var lastRawDataEntryTimestamp = ttlcache.NewCache()
 
-var nrOfApiCallsBeforeAppendCalls = ttlcache.NewCache()
-
 func GetData(id string) (interface{}, bool) {
 	return frameDataCache.Get(id)
 }
@@ -30,16 +27,16 @@ func GetFrameDataCount() int {
 }
 
 // when this is called there no errors, so clear any previous error and store data
-func StoreFrame(id string, ttl int64, frame data.Frames) {
-	frameDataCache.SetWithTTL(id, frame, time.Duration(ttl)*time.Second)
+func StoreFrame(id string, ttl int64, response backend.DataResponse) {
+	frameDataCache.SetWithTTL(id, response, time.Duration(ttl)*time.Second)
 }
 
 func GetFrameCount(key string) int {
 	frameValue, ok := GetData(key)
 	if ok {
-		df, ok := frameValue.(data.Frames)
+		df, ok := frameValue.(backend.DataResponse)
 		if ok {
-			l, ok := df[0].RowLen()
+			l, ok := df.Frames[0].RowLen()
 			if ok == nil {
 				return l
 			}
@@ -48,14 +45,35 @@ func GetFrameCount(key string) int {
 	return 0
 }
 
-func StoreLastestRawDataEntryTimestamp(key string, timeStamp int64, ttl int64) {
-	lastRawDataEntryTimestamp.SetWithTTL(key, timeStamp, time.Duration(ttl)*time.Second)
+func StoreLastestRawDataEntryTimestamp(metaData models.MetaData, timeStamp int64, ttl int64) {
+	if metaData.IsCallFromQueryEditor {
+		lastRawDataEntryTimestamp.Set(metaData.TempQueryEditorID, timeStamp)
+		lastRawDataEntryTimestamp.Set(metaData.FrameId, timeStamp)
+	} else {
+		lastRawDataEntryTimestamp.Set(metaData.FrameId, timeStamp)
+	}
 }
 
-func GetLastestRawDataEntryTimestamp(key string) int64 {
-	v, ok := lastRawDataEntryTimestamp.Get(key)
-	if ok {
-		return v.(int64)
+func GetLastestRawDataEntryTimestamp(metaData models.MetaData) int64 {
+	if metaData.IsCallFromQueryEditor {
+		if _, ok := GetQueryEditorCacheData(metaData.TempQueryEditorID); !ok {
+			lastRawDataEntryTimestamp.Remove(metaData.TempQueryEditorID)
+			return 0
+		}
+		if v, ok := lastRawDataEntryTimestamp.Get(metaData.TempQueryEditorID); ok {
+			return v.(int64)
+		}
+	} else {
+		if _, ok := GetQueryEditorCacheData(metaData.TempQueryEditorID); !ok {
+			lastRawDataEntryTimestamp.Remove(metaData.TempQueryEditorID)
+		}
+		if _, ok := GetData(metaData.FrameId); !ok {
+			lastRawDataEntryTimestamp.Remove(metaData.FrameId)
+			return 0
+		}
+		if v, ok := lastRawDataEntryTimestamp.Get(metaData.FrameId); ok {
+			return v.(int64)
+		}
 	}
 	return 0
 }

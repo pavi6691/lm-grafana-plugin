@@ -11,6 +11,7 @@ import (
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
+	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
@@ -25,6 +26,7 @@ func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel,
 			match, err := regexp.MatchString(queryModel.InstanceRegex, instace)
 			if err == nil && match {
 				matchedInstances = true
+				metadata.AppendRequest = instanceData.AppendRequest
 				dataFrame := addFrameValues(uniqueID, instace, queryModel.DataPointSelected, instanceData.DataPoints, instanceData.Instances[key].Values,
 					instanceData.Instances[key].Time, tempMap, queryModel, metadata, logger) //nolint:lll
 				// add the frames to the response.
@@ -59,6 +61,7 @@ func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel,
 			if ok {
 				matchedInstances = true
 			}
+			metadata.AppendRequest = instanceData.AppendRequest
 			dataFrame := addFrameValues(uniqueID, instance.Label, queryModel.DataPointSelected, instanceData.DataPoints,
 				instanceData.Instances[key].Values, instanceData.Instances[key].Time, tempMap, queryModel, metadata, logger) //nolint:lll
 			// add the frames to the response.
@@ -98,8 +101,8 @@ func addFrameValues(uniqueID string, instanceName string, dataPointSelected []mo
 	}
 	if len(Time) > 0 {
 		latestTimeOfAllInstances := time.UnixMilli(Time[0]).Unix()
-		if cache.GetLastestRawDataEntryTimestamp(uniqueID) < latestTimeOfAllInstances {
-			cache.StoreLastestRawDataEntryTimestamp(uniqueID, latestTimeOfAllInstances, queryModel.FrameCacheTTLInSeconds)
+		if cache.GetLastestRawDataEntryTimestamp(metaData) < latestTimeOfAllInstances {
+			cache.StoreLastestRawDataEntryTimestamp(metaData, latestTimeOfAllInstances, metaData.FrameCacheTTLInSeconds)
 		}
 	}
 	return frame
@@ -123,8 +126,8 @@ func getFrame(uniqueID string, tempMap map[string]*data.Frame, instanceName stri
 	if !metaData.IsCallFromQueryEditor {
 		frameValue, framePresent := cache.GetData(uniqueID)
 		if framePresent {
-			if df, ok := frameValue.(data.Frames); ok {
-				for _, frme := range df {
+			if df, ok := frameValue.(backend.DataResponse); ok {
+				for _, frme := range df.Frames {
 					if frme.RefID == instanceName {
 						frame = frme
 						break
@@ -142,7 +145,7 @@ func getFrame(uniqueID string, tempMap map[string]*data.Frame, instanceName stri
 		// create data frame response.
 		val, ok := tempMap[instanceName]
 		if ok && len(Values) < val.Rows() {
-			if metaData.IsCallFromQueryEditor && metaData.ApendRequest {
+			if metaData.IsCallFromQueryEditor && metaData.AppendRequest {
 				// here, if its for fromQueryEditor and is to append data
 				// delete same number of intial entries as new entries to append
 				logger.Info("Re-arrangig dataFrame : Nr of enties deleted and same number of new entries are appended.....", len(Values))
@@ -187,11 +190,6 @@ func RecordsToAppend(from int64, to int64, collectInterval int64) int64 {
 
 func GetTimeRanges(from int64, to int64, collectInterval int64, metaData models.MetaData, logger log.Logger) []models.PendingTimeRange {
 	pendingTimeRange := []models.PendingTimeRange{}
-	if metaData.InstanceWithLastRawDataEntryTimestamp > 0 {
-		from = metaData.InstanceWithLastRawDataEntryTimestamp + 1
-	} else {
-		from = UnixTruncateToNearestMinute(from, 60)
-	}
 	recordsToAppend := RecordsToAppend(from, to, collectInterval)
 	logger.Debug("RecordsToAppend => ", recordsToAppend)
 	for i := recordsToAppend; i > constants.NumberOfRecordsWithRateLimit; i = i - constants.NumberOfRecordsWithRateLimit {
@@ -219,8 +217,8 @@ func GetTimeRanges(from int64, to int64, collectInterval int64, metaData models.
 /*
 Returns seconds to wait before making API call for new data. is based on ds collect interval time and last time when data is recieved
 */
-func GetWaitTimeInSec(uniqueID string, collectInterval int64) int64 {
-	waitSeconds := (cache.GetLastestRawDataEntryTimestamp(uniqueID) + collectInterval) - time.Now().Unix()
+func GetWaitTimeInSec(metaData models.MetaData, collectInterval int64) int64 {
+	waitSeconds := (cache.GetLastestRawDataEntryTimestamp(metaData) + collectInterval) - time.Now().Unix()
 	if waitSeconds > 0 {
 		return waitSeconds
 	}

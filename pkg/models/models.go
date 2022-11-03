@@ -36,6 +36,7 @@ type MultiInstanceData struct {
 	DataSourceName string                   `json:"dataSourceName,omitempty"`
 	DataPoints     []string                 `json:"dataPoints,omitempty"`
 	Instances      map[string]ValuesAndTime `json:"instances,omitempty"`
+	AppendRequest  bool
 }
 
 type MultiInstanceRawData struct {
@@ -73,7 +74,6 @@ type QueryModel struct {
 	InstanceRegex            string             `json:"instanceRegex"`
 	ValidInstanceRegex       bool               `json:"validInstanceRegex"`
 	IsQueryInterpolated      bool               `json:"isQueryInterpolated"`
-	FrameCacheTTLInSeconds   int64
 }
 
 type Error struct {
@@ -109,13 +109,12 @@ type PendingTimeRange struct {
 }
 
 type MetaData struct {
-	TempQueryEditorID                     string
-	FrameId                               string
-	IsForLastXTime                        bool
-	IsCallFromQueryEditor                 bool
-	InstanceWithLastRawDataEntryTimestamp int64
-	TimeRangeForApiCall                   []PendingTimeRange
-	ActualNumberOfCallsBeforeAppend       int
-	ApendRequest                          bool
-	MatchedInstances                      bool
+	FrameCacheTTLInSeconds int64
+	TempQueryEditorID      string
+	FrameId                string
+	IsForLastXTime         bool
+	IsCallFromQueryEditor  bool
+	TimeRangeForApiCall    []PendingTimeRange
+	AppendRequest          bool
+	MatchedInstances       bool
 }

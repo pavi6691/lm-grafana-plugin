@@ -131,7 +131,7 @@ const (
 )
 
 const (
-	EnableFetchDataTimeRange                    = false
+	EnableFetchDataTimeRange                    = true
 	QueryEditorCacheTTLInMinutes                = 2
 	AdditionalFrameCacheTTLInMinutes            = 2
 	LastXMunitesCheckForFrameIdCalculationInSec = 90
