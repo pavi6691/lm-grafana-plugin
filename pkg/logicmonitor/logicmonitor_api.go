@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,7 +18,6 @@ import (
 
 func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSettings *models.AuthSettings,
 	logger log.Logger, pluginContext backend.PluginContext, query backend.DataQuery) backend.DataResponse {
-	logger.Info("")
 	response := backend.DataResponse{} //nolint:exhaustivestruct
 
 	// Unmarshal the JSON into our queryModel.
@@ -29,7 +27,6 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	response.Error = json.Unmarshal(query.JSON, &queryModel)
 	if response.Error != nil || queryModel.DataPointSelected == nil {
 		logger.Error(constants.ErrorUnmarshallingErrorData+"queryModel =>", response.Error)
-
 		return response
 	}
 
@@ -71,12 +68,8 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	logger.Debug("tempQueryEditorID ==> ", metaData.TempQueryEditorID)
 	logger.Debug("frameID ==> ", metaData.FrameId)
 	logger.Debug("isForLastXTime ==> ", metaData.IsForLastXTime)
-	waitGroup := &sync.WaitGroup{}
-	waitGroup.Add(1)
-	response = OldAndNewDataProcessorTask(query, queryModel, metaData, authSettings, pluginSettings, waitGroup, logger)
-	waitGroup.Wait()
-	// response, response.Error = GetFromFrameCache(frameID)
-	return response
+
+	return GetData(query, queryModel, metaData, authSettings, pluginSettings, logger)
 }
 
 func getQueryEditorTempID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string { //nolint:lll

@@ -19,11 +19,13 @@ const (
 )
 
 const (
-	Authorization  = "Authorization"
-	LMv1           = "LMv1"
-	XVersion       = "x-version"
-	XVersionValue3 = "3"
-	UserAgent      = "User-Agent"
+	Authorization     = "Authorization"
+	LMv1              = "LMv1"
+	XVersion          = "x-version"
+	XVersionValue3    = "3"
+	UserAgent         = "User-Agent"
+	BearerTokenPrefix = "Bearer "
+	GrafanaUserAgent  = "LM-Grafana-%s:%s"
 )
 
 const (
@@ -50,7 +52,9 @@ const (
 	InvalidCompanyName                = "Invalid company name configured"
 	APIErrMsg                         = "API Failed with status code = "
 	URLConfigurationErrMsg            = "URL configuration missing in Backend"
-	ErrorReadingResponseBody          = "Error reading response Body = "
+	ErrorReadingResponseBody          = "error reading response Body = "
+	ErrorCreatingHttpRequest          = "Error creating http request"
+	HttpClientErrorMakingRequest      = "http client error while making request"
 	ErrorUnmarshallingErrorData       = "Error Unmarshalling "
 	DataNotPresentCacheErrMsg         = "Data not present in FrameCache"
 	InvalidFormatOfDataInFrameCache   = "Invalidate data format in FrameCache"

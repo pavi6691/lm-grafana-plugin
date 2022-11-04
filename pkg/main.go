@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"os"
+
+	"github.com/grafana/grafana-plugin-sdk-go/backend"
 
 	plugin "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/datasource"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/datasource"
@@ -23,7 +24,7 @@ func main() {
 	//todo plugin id and docs
 	backend.SetupPluginEnvironment(LOGICMONITOR_PLUGIN_ID)
 	pluginLogger := log.New()
-	pluginLogger.Debug("Starting Zabbix datasource")
+	pluginLogger.Debug("Starting logicmonitor datasource..")
 	if err := datasource.Manage(LOGICMONITOR_PLUGIN_ID, plugin.LogicmonitorBackendDataSource, datasource.ManageOpts{}); err != nil {
 		log.DefaultLogger.Error(err.Error())
 		pluginLogger.Error("Error starting Logicmonitor datasource", "error", err.Error())

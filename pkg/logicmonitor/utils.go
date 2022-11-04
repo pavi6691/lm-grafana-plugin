@@ -26,7 +26,6 @@ func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel,
 			match, err := regexp.MatchString(queryModel.InstanceRegex, instace)
 			if err == nil && match {
 				matchedInstances = true
-				metadata.AppendRequest = instanceData.AppendRequest
 				dataFrame := addFrameValues(uniqueID, instace, queryModel.DataPointSelected, instanceData.DataPoints, instanceData.Instances[key].Values,
 					instanceData.Instances[key].Time, tempMap, queryModel, metadata, logger) //nolint:lll
 				// add the frames to the response.
@@ -61,7 +60,6 @@ func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel,
 			if ok {
 				matchedInstances = true
 			}
-			metadata.AppendRequest = instanceData.AppendRequest
 			dataFrame := addFrameValues(uniqueID, instance.Label, queryModel.DataPointSelected, instanceData.DataPoints,
 				instanceData.Instances[key].Values, instanceData.Instances[key].Time, tempMap, queryModel, metadata, logger) //nolint:lll
 			// add the frames to the response.
@@ -74,7 +72,6 @@ func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel,
 
 func addFrameValues(uniqueID string, instanceName string, dataPointSelected []models.LabelIntValue, dataPoints []string, Values [][]interface{},
 	Time []int64, tempMap map[string]*data.Frame, queryModel *models.QueryModel, metaData models.MetaData, logger log.Logger) *data.Frame {
-
 	frame := getFrame(uniqueID, tempMap, instanceName, dataPointSelected, Values, metaData, logger)
 
 	// this dataPontMap is to keep indexs of datapoints as value,
@@ -127,58 +124,70 @@ func getFrame(uniqueID string, tempMap map[string]*data.Frame, instanceName stri
 		frameValue, framePresent := cache.GetData(uniqueID)
 		if framePresent {
 			if df, ok := frameValue.(backend.DataResponse); ok {
-				for _, frme := range df.Frames {
-					if frme.RefID == instanceName {
-						frame = frme
+				for _, frame = range df.Frames {
+					if frame.RefID == instanceName {
 						break
 					}
 				}
 			}
 		}
 	}
-
 	/*
-		frame is from cache, new values more than existing rows in frame then new frame is returned.
-		this is because its been too long since new data is appended
+		frame is not from cache, this is the first call
 	*/
 	if frame == nil {
 		// create data frame response.
 		val, ok := tempMap[instanceName]
-		if ok && len(Values) < val.Rows() {
+		if ok {
 			if metaData.IsCallFromQueryEditor && metaData.AppendRequest {
-				// here, if its for fromQueryEditor and is to append data
-				// delete same number of intial entries as new entries to append
-				logger.Info("Re-arrangig dataFrame : Nr of enties deleted and same number of new entries are appended.....", len(Values))
-				for i := 0; i < len(Values); i++ {
-					val.DeleteRow(i)
+				if len(Values) < val.Rows() {
+					// here, if its for fromQueryEditor and is to append data
+					// delete same number of intial entries as new entries to append
+					logger.Debug("Re-arrangig dataFrame : Nr of enties deleted and same number of new entries are appended.....", len(Values))
+					for i := 0; i < len(Values); i++ {
+						val.DeleteRow(i)
+					}
+				} else {
+					return initiateNewDataFrame(instanceName, dataPointSelected)
 				}
 			}
 			return val
 		} else {
-			frame = data.NewFrame(constants.ResponseStr)
-			// add fields
-			frame.Fields = append(frame.Fields,
-				data.NewField(constants.TimeStr, nil, []time.Time{}),
-			)
-			frame.RefID = instanceName
-			for _, datapoint := range dataPointSelected {
-				frame.Fields = append(frame.Fields,
-					data.NewField(instanceName+constants.InstantAndDpDelim+datapoint.Label, nil, []float64{}),
-				)
-			}
-			return frame
+			return initiateNewDataFrame(instanceName, dataPointSelected)
 		}
 	} else {
-		// dataframe is resent, so just append new data and before that same number of initial records are removed
 		/*
-			TODO importent! When new entries are appended, same amount of old entries are removed, need to check all those new entries are for all datapoints selected,
-			for missing dps also old entries are removed which is not correct. it may happen in case of multiple instance,
-			not all instance will get entries at the same time
+			On dashboard/query is not updated recently. data already present and its a append request. dataframe is recent,
+			so to append new data, same number of initial records are removed
 		*/
-		logger.Debug("Re-arrangig dataFrame : Nr of enties deleted and same number of new entries are appended.....", len(Values))
-		for i := 0; i < len(Values); i++ {
-			frame.DeleteRow(i)
+		if len(Values) < frame.Rows() {
+			/*
+				TODO importent! When new entries are appended, same amount of old entries are removed, need to check all those new entries are for
+				all datapoints selected, for missing dps also old entries are removed which is not correct. it may happen in case of multiple instance,
+				not all instance will get entries at the same time
+			*/
+			logger.Debug("Re-arrangig dataFrame : Nr of enties deleted and same number of new entries are appended.....", len(Values))
+			for i := 0; i < len(Values); i++ {
+				frame.DeleteRow(i)
+			}
+		} else {
+			return initiateNewDataFrame(instanceName, dataPointSelected)
 		}
+	}
+	return frame
+}
+
+func initiateNewDataFrame(instanceName string, dataPointSelected []models.LabelIntValue) *data.Frame {
+	frame := data.NewFrame(constants.ResponseStr)
+	// add fields
+	frame.Fields = append(frame.Fields,
+		data.NewField(constants.TimeStr, nil, []time.Time{}),
+	)
+	frame.RefID = instanceName
+	for _, datapoint := range dataPointSelected {
+		frame.Fields = append(frame.Fields,
+			data.NewField(instanceName+constants.InstantAndDpDelim+datapoint.Label, nil, []float64{}),
+		)
 	}
 	return frame
 }

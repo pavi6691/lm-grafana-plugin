@@ -36,13 +36,13 @@ type MultiInstanceData struct {
 	DataSourceName string                   `json:"dataSourceName,omitempty"`
 	DataPoints     []string                 `json:"dataPoints,omitempty"`
 	Instances      map[string]ValuesAndTime `json:"instances,omitempty"`
-	AppendRequest  bool
 }
 
 type MultiInstanceRawData struct {
-	Data   MultiInstanceData `json:"data,omitempty"`
-	Error  string            `json:"errmsg,omitempty"`
-	Status int               `json:"status,omitempty"`
+	Data          MultiInstanceData `json:"data,omitempty"`
+	Error         string            `json:"errmsg,omitempty"`
+	Status        int               `json:"status,omitempty"`
+	AppendRequest bool
 }
 
 type HostDataSourceItems struct {

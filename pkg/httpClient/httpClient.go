@@ -23,7 +23,7 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 
 	httpRequest, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		logger.Error(" Error creating http request => ", err)
+		logger.Error(constants.ErrorCreatingHttpRequest, err)
 
 		return nil, err //nolint:wrapcheck
 	}
@@ -60,14 +60,15 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 
 	newResp, err := client.Do(httpRequest)
 	var respByte []byte
-	if err == nil {
-		respByte, err = ioutil.ReadAll(newResp.Body)
-		if err != nil {
-			logger.Error(constants.ErrorReadingResponseBody, err)
-			return nil, errors.New(constants.ErrorReadingResponseBody)
-
-		}
-		defer newResp.Body.Close()
+	if err != nil {
+		logger.Error(constants.HttpClientErrorMakingRequest, err)
+		return nil, errors.New(constants.HttpClientErrorMakingRequest)
+	}
+	defer newResp.Body.Close()
+	respByte, err = ioutil.ReadAll(newResp.Body)
+	if err != nil {
+		logger.Error(constants.ErrorReadingResponseBody, err)
+		return nil, errors.New(constants.ErrorReadingResponseBody)
 	}
 	err = handleException(newResp, err)
 	if err != nil {
@@ -89,11 +90,11 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 }
 
 func buildBearerToken(authSettings *models.AuthSettings) string {
-	return "Bearer " + authSettings.BearerToken
+	return constants.BearerToken + authSettings.BearerToken
 }
 
 func buildGrafanaUserAgent(pluginSettings *models.PluginSettings) string {
-	return "LM-Grafana-" + pluginSettings.Path + ":" + pluginSettings.Version
+	return fmt.Sprintf(constants.GrafanaUserAgent, pluginSettings.Path, pluginSettings.Version)
 }
 
 func getLMv1(accessID, accessKey, resourcePath string) string {
