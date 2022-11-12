@@ -20,7 +20,7 @@ import (
 func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel, instanceData *models.MultiInstanceData, tempMap map[string]*data.Frame,
 	metadata models.MetaData, logger log.Logger) (map[string]*data.Frame, bool) {
 	var matchedInstances bool = false
-	if queryModel.ValidInstanceRegex && queryModel.InstanceSelectBy == constants.Regex {
+	if queryModel.EnableRegexFeature && queryModel.ValidInstanceRegex && queryModel.InstanceSelectBy == constants.Regex {
 		for key := range instanceData.Instances {
 			instace := key[strings.IndexByte(key, '-')+1:]
 			match, err := regexp.MatchString(queryModel.InstanceRegex, instace)
@@ -96,9 +96,9 @@ func addFrameValues(uniqueID string, instanceName string, dataPointSelected []mo
 		}
 		frame.AppendRow(vals...)
 	}
-	if len(Time) > 0 {
+	if queryModel.EnableDataAppendFeature && len(Time) > 0 {
 		latestTimeOfAllInstances := time.UnixMilli(Time[0]).Unix()
-		if cache.GetLastestRawDataEntryTimestamp(metaData) < latestTimeOfAllInstances {
+		if cache.GetLastestRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature) < latestTimeOfAllInstances {
 			cache.StoreLastestRawDataEntryTimestamp(metaData, latestTimeOfAllInstances, metaData.FrameCacheTTLInSeconds)
 		}
 	}
@@ -139,7 +139,7 @@ func getFrame(uniqueID string, tempMap map[string]*data.Frame, instanceName stri
 		// create data frame response.
 		val, ok := tempMap[instanceName]
 		if ok {
-			if metaData.IsCallFromQueryEditor && metaData.AppendRequest {
+			if metaData.IsCallFromQueryEditor && metaData.AppendAndDelete && !metaData.AppendOnly {
 				if len(Values) < val.Rows() {
 					// here, if its for fromQueryEditor and is to append data
 					// delete same number of intial entries as new entries to append
@@ -155,7 +155,7 @@ func getFrame(uniqueID string, tempMap map[string]*data.Frame, instanceName stri
 		} else {
 			return initiateNewDataFrame(instanceName, dataPointSelected)
 		}
-	} else {
+	} else if !metaData.AppendOnly {
 		/*
 			On dashboard/query is not updated recently. data already present and its a append request. dataframe is recent,
 			so to append new data, same number of initial records are removed
@@ -226,8 +226,8 @@ func GetTimeRanges(from int64, to int64, collectInterval int64, metaData models.
 /*
 Returns seconds to wait before making API call for new data. is based on ds collect interval time and last time when data is recieved
 */
-func GetWaitTimeInSec(metaData models.MetaData, collectInterval int64) int64 {
-	waitSeconds := (cache.GetLastestRawDataEntryTimestamp(metaData) + collectInterval) - time.Now().Unix()
+func GetWaitTimeInSec(metaData models.MetaData, collectInterval int64, enableDataAppendFeature bool) int64 {
+	waitSeconds := (cache.GetLastestRawDataEntryTimestamp(metaData, enableDataAppendFeature) + collectInterval) - time.Now().Unix()
 	if waitSeconds > 0 {
 		return waitSeconds
 	}

@@ -18,7 +18,11 @@ export interface MyQuery extends DataQuery {
   lastQueryEditedTimeStamp: any;
   isQueryInterpolated: boolean
   withStreaming: boolean;
-  variableSupport: boolean
+  enableHostVariable: boolean
+  enabledRegexFeature: boolean
+  enabledHostVariableFeature: boolean
+  enabledHistoricalData: boolean
+  enabledDataAppendFeature: boolean
 }
 export const defaultQuery: Partial<MyQuery> = {
   withStreaming: false,

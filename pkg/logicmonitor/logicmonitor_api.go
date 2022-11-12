@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpclient"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
@@ -29,35 +30,43 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 		logger.Error(constants.ErrorUnmarshallingErrorData+"queryModel =>", response.Error)
 		return response
 	}
-
+	logger.Debug("queryModel => ", queryModel)
 	// interpolatedQuery, when variable is added on dashboard, one variable on dashboard is hadled here. its considered to be host
-	logger.Debug("queryModel.interpolatedQuery? => ", queryModel.IsQueryInterpolated)
-	if queryModel.IsQueryInterpolated {
-		requestURL := BuildURLReplacingQueryParams(constants.HostDataSourceReq, &queryModel, 0, 0, models.MetaData{})
-		if requestURL == "" {
-			logger.Error(constants.URLConfigurationErrMsg)
-			return response
-		}
-		var respByte []byte
-		respByte, response.Error = httpclient.Get(pluginSettings, authSettings, requestURL, logger)
-		if response.Error != nil {
-			logger.Error("Error from server => ", response.Error)
-			return response
-		}
-		var hdsReponse models.HostDataSource
-		response.Error = json.Unmarshal(respByte, &hdsReponse)
-		if response.Error != nil {
-			logger.Error(constants.ErrorUnmarshallingErrorData+"hdsReponse =>", response.Error.Error())
-			return response
-		}
-		if hdsReponse.Data.Total == 1 {
-			queryModel.HdsSelected = hdsReponse.Data.Items[0].Id
-		} else if hdsReponse.Data.Total > 1 {
-			response.Error = errors.New(constants.MoreThanOneHostDataSources + queryModel.DataSourceSelected.Label)
-			return response
-		} else {
-			response.Error = errors.New(fmt.Sprintf(constants.HostHasNoMatchingDataSource, queryModel.DataSourceSelected.Label))
-			return response
+	if queryModel.EnableHostVariableFeature {
+		logger.Info("queryModel.interpolatedQuery? => ", queryModel.IsQueryInterpolated)
+		hdsSelected, present := cache.GetHdsByHostAndDs(queryModel.HostSelected.Value, queryModel.DataSourceSelected.Ds)
+		if queryModel.IsQueryInterpolated {
+			if !present {
+				requestURL := BuildURLReplacingQueryParams(constants.HostDataSourceReq, &queryModel, 0, 0, models.MetaData{})
+				if requestURL == "" {
+					logger.Error(constants.URLConfigurationErrMsg)
+					return response
+				}
+				var respByte []byte
+				respByte, response.Error = httpclient.Get(pluginSettings, authSettings, requestURL, constants.HostDataSourceReq, logger)
+				if response.Error != nil {
+					logger.Error("Error from server => ", response.Error)
+					return response
+				}
+				var hdsReponse models.HostDataSource
+				response.Error = json.Unmarshal(respByte, &hdsReponse)
+				if response.Error != nil {
+					logger.Error(constants.ErrorUnmarshallingErrorData+"hdsReponse =>", response.Error.Error())
+					return response
+				}
+				if hdsReponse.Total == 1 {
+					queryModel.HdsSelected = hdsReponse.Items[0].Id
+					cache.StoreHds(queryModel.HostSelected.Value, queryModel.DataSourceSelected.Ds, queryModel.HdsSelected)
+				} else if hdsReponse.Total > 1 {
+					response.Error = errors.New(constants.MoreThanOneHostDataSources + queryModel.DataSourceSelected.Label)
+					return response
+				} else {
+					response.Error = errors.New(fmt.Sprintf(constants.HostHasNoMatchingDataSource, queryModel.DataSourceSelected.Label))
+					return response
+				}
+			} else {
+				queryModel.HdsSelected = hdsSelected
+			}
 		}
 	}
 
@@ -69,10 +78,14 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	logger.Debug("frameID ==> ", metaData.FrameId)
 	logger.Debug("isForLastXTime ==> ", metaData.IsForLastXTime)
 
-	return GetData(query, queryModel, metaData, authSettings, pluginSettings, logger)
+	return GetData(query, queryModel, metaData, authSettings, pluginSettings, pluginContext, logger)
 }
 
 func getQueryEditorTempID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string { //nolint:lll
+	if !queryModel.EnableDataAppendFeature {
+		//backword compatible
+		return getUniqueID(queryModel, query, pluginSettings)
+	}
 	if UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60) > (time.Now().Unix() - constants.LastXMunitesCheckForFrameIdCalculationInSec) { // LastXTime, return true in this case
 		return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
 			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
@@ -86,6 +99,10 @@ func getQueryEditorTempID(queryModel *models.QueryModel, query *backend.DataQuer
 }
 
 func getFrameID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) (string, bool) { //nolint:lll
+	if !queryModel.EnableDataAppendFeature {
+		//backword compatible
+		return getUniqueID(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
+	}
 	lastInterval := query.TimeRange.To.Unix() - query.TimeRange.From.Unix()
 	if UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60) > (time.Now().Unix() - constants.LastXMunitesCheckForFrameIdCalculationInSec) { // LastXTime, return true in this case
 		return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
@@ -96,6 +113,15 @@ func getFrameID(queryModel *models.QueryModel, query *backend.DataQuery, pluginS
 			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10) +
 			strconv.FormatInt(query.TimeRange.From.Unix(), 10) + strconv.FormatInt(query.TimeRange.To.Unix(), 10), false
 	}
+}
+
+func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string { //nolint:lll
+	lastFromTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
+	lastToTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60)
+
+	return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
+		queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
+		strconv.FormatInt(lastFromTimeUnixTruncated, 10) + strconv.FormatInt(lastToTimeUnixTruncated, 10)
 }
 
 func checkIfCallFromQueryEditor(queryModel *models.QueryModel) bool {

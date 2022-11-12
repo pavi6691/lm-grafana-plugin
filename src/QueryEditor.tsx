@@ -4,7 +4,7 @@ import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from './datasource';
 import { MyDataSourceOptions, MyQuery } from './types';
 import { RestClient } from 'RestClient';
-import {PathEndpoints} from './PathEndpoints';
+import { Constants } from 'Constants';
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 const SELECT_ALL_STAR = "*";
 var instanceCache: any
@@ -20,7 +20,7 @@ export class QueryEditor extends PureComponent<Props> {
 
   variableSupportChange = (event: SyntheticEvent<HTMLInputElement>) => {
     const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query,variableSupport: event.currentTarget.checked });
+    onChange({ ...query,enableHostVariable: event.currentTarget.checked });
     if(query.dataPointSelected !== undefined && query.dataPointSelected.length > 0){
       onRunQuery();
     }
@@ -175,7 +175,7 @@ export class QueryEditor extends PureComponent<Props> {
     const [instanceSelectBy,setInstanceSelectBy] = useState<any>();
     const [instanceRegex,setInstanceRegex] = useState<any>();
 
-    const [isAutocompleteEnabled] = useState(true); // currently only used for group and hosts. as it requires devices datasource id, for datasources using standerd api
+    const [isAutocompleteEnabled] = useState(Constants.IsAutocompleteEnabled); // currently only used for group and hosts. as it requires devices datasource id, for datasources using standerd api
 
     const optionStartsWithValue = (option: SelectableValue<string>, value: string) =>
             option.label?.toString().startsWith(value) || false;
@@ -183,7 +183,7 @@ export class QueryEditor extends PureComponent<Props> {
     const loadGroups = () => {
       if(this.props.query.deviceGroup === true && this.props.query.serviceGroup === true) {
         setGroupLoading(true);
-        this.callPromise(PathEndpoints.AutoCompleteGroupReq, false).then((rs) => {
+        this.callPromise(Constants.AutoCompleteGroupReq, false).then((rs) => {
           setGroupOptions(rs);
         }).finally(() => {  
           setGroupLoading(false);
@@ -193,7 +193,7 @@ export class QueryEditor extends PureComponent<Props> {
          const loadGroupAsyncOptions = () => {
          return new Promise<Array<SelectableValue<string>>>((resolve) => {
           setTimeout(() => {
-            resolve(this.doGroupRequest(PathEndpoints.ServiceOrDeviceGroupReq));
+            resolve(this.doGroupRequest(Constants.ServiceOrDeviceGroupReq));
             }, 1500);
           });
          };
@@ -230,7 +230,7 @@ export class QueryEditor extends PureComponent<Props> {
 
     const loadHosts = () => {
       setDeviceLoading(true)
-      this.callPromise(PathEndpoints.AutoCompleteHostReq, true).then((rs) => {
+      this.callPromise(Constants.AutoCompleteHostReq, true).then((rs) => {
         setHostOptions(rs);
       }).finally(() => {
         setDeviceLoading(false);
@@ -253,7 +253,7 @@ export class QueryEditor extends PureComponent<Props> {
     
     const loadAutoCompleteInstances = () => {
       setInstanceLoading(true)
-      this.callPromise(PathEndpoints.AutoCompleteInstanceReq, true).then((rs) => {
+      this.callPromise(Constants.AutoCompleteInstanceReq, true).then((rs) => {
         setInstanceOptions(rs);
       }).finally(() => {
         setInstanceLoading(false);
@@ -262,7 +262,7 @@ export class QueryEditor extends PureComponent<Props> {
 
     const loadAllInstances = () => {
       setInstanceLoading(true)
-      const routePath = PathEndpoints.AllInstanceReq;
+      const routePath = Constants.AllInstanceReq;
       return new Promise<Array<SelectableValue<string>>>((resolve) => {
         setTimeout(() => {
           resolve(this.doInstanceRequest(routePath));
@@ -285,7 +285,7 @@ export class QueryEditor extends PureComponent<Props> {
       useEffect(() => {
         const loadHostAsyncOptions = () => {
           setDeviceLoading(true)
-          const rootPath = PathEndpoints.AllHostReq;
+          const rootPath = Constants.AllHostReq;
           return new Promise<Array<SelectableValue<string>>>((resolve) => {
             setTimeout(() => {
               resolve(this.doDeviceRequest(rootPath));
@@ -347,7 +347,7 @@ export class QueryEditor extends PureComponent<Props> {
           setDsLoading(true)
           return new Promise<Array<SelectableValue<string>>>((resolve) => {
             setTimeout(() => {
-              resolve(this.doDataSourceRequest(PathEndpoints.DataSourceReq));
+              resolve(this.doDataSourceRequest(Constants.DataSourceReq));
             }, 1500);
           });
         };
@@ -366,7 +366,7 @@ export class QueryEditor extends PureComponent<Props> {
           setDPLoading(true)
           return new Promise<Array<SelectableValue<string>>>((resolve) => {
             setTimeout(() => {
-              resolve(this.doDataPointRequest(PathEndpoints.DataPointReq));
+              resolve(this.doDataPointRequest(Constants.DataPointReq));
             }, 1500);
           });
         };
@@ -380,14 +380,20 @@ export class QueryEditor extends PureComponent<Props> {
     if(this.props.query.deviceGroup === undefined) {
       this.props.query.deviceGroup = true
       this.props.query.typeSelected = 'Normal';
-      setInstanceSelectBy('Regex')
-      this.props.query.instanceSelectBy = "Regex"
+      if (Constants.EnableRegexFeature) {
+        setInstanceSelectBy('Regex')
+        this.props.query.instanceSelectBy = "Regex"
+      } else {
+        setInstanceSelectBy('Select')
+        this.props.query.instanceSelectBy = "Select"
+      }
     } else if (instanceSelectBy === undefined) {
       setInstanceSelectBy(this.props.query.instanceSelectBy)
     }
-    if(this.props.query.variableSupport === undefined) {
-      this.props.query.variableSupport = true
+    if(this.props.query.enableHostVariable === undefined) {
+      this.props.query.enableHostVariable = true
     }
+    
     return (
       <div style={{ width: '100%' }}>
         {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
@@ -404,18 +410,20 @@ export class QueryEditor extends PureComponent<Props> {
               { label: 'Services', value: 'BizService' }, ]}
             fullWidth={true}
           />
+          {Constants.EnableHostVariableFeature && <div style={{ width: '100%', display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel 
             width={'auto'} 
             tooltip={'Currently single variable on dashboard is allowed. which is considered to be host. use custom type to add hostname and id as key value pair. By desabling this flag so that data is fetched for host in the query but not host selected on dashboard variable. This helps in cases 1) If selected host from variable is not matching with datasource selected in this query. 2) Instance names not matching with regex/selection made. Note: If dashboard is intended for perticular host then do not disable this flag. And This flag has no effect if there are no variable added on dashboard'}>Allow Host Variable</InlineLabel>
           <InlineSwitch
             width={'auto'}
-            default={this.props.query.variableSupport}
-            value={this.props.query.variableSupport}
+            default={this.props.query.enableHostVariable}
+            value={this.props.query.enableHostVariable}
             onChange={this.variableSupportChange}
           />
           <div style={{ width: '100%' }}>
             <InlineLabel> </InlineLabel>
           </div>
+          </div>}
         </div>}
         {isAutocompleteEnabled && <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>Groups</InlineLabel>
@@ -524,7 +532,7 @@ export class QueryEditor extends PureComponent<Props> {
           </div>
           <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>Instances</InlineLabel>
-          <RadioButtonGroup
+          {Constants.EnableRegexFeature && <div><RadioButtonGroup
             onChange={(v) => {
               setInstanceSelected([])
               this.props.query.instanceSelectBy = v;
@@ -537,6 +545,7 @@ export class QueryEditor extends PureComponent<Props> {
                ]}
             fullWidth={false}
           />
+          </div>}
           {this.props.query.instanceSelectBy === 'Select' && <MultiSelect
             menuPlacement={'bottom'}
             defaultValue={this.props.query.instanceSelected}
@@ -577,7 +586,7 @@ export class QueryEditor extends PureComponent<Props> {
                }
             /> 
             }
-            {<InlineLabel width={'auto'}>{this.props.query.instanceSelected === undefined? 0 : this.props.query.instanceSelected?.length} Instaces</InlineLabel>}
+            {/* {<InlineLabel width={'auto'}>{this.props.query.instanceSelected === undefined? 0 : this.props.query.instanceSelected?.length} Instaces</InlineLabel>} */}
           </div>
           <div style={{ display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel width={15}>DataPoints</InlineLabel>

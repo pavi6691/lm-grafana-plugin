@@ -18,6 +18,8 @@ func handleException(response *http.Response, err error) error {
 			err = errors.New(constants.ConnectionTimeoutError)
 		} else if strings.Contains(err.Error(), constants.ConnectionUnReachable) {
 			err = errors.New(constants.ConnectionTimeoutError)
+		} else {
+			err = errors.New(constants.HttpClientErrorMakingRequest)
 		}
 		return err
 	}

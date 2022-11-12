@@ -39,41 +39,42 @@ type MultiInstanceData struct {
 }
 
 type MultiInstanceRawData struct {
-	Data          MultiInstanceData `json:"data,omitempty"`
-	Error         string            `json:"errmsg,omitempty"`
-	Status        int               `json:"status,omitempty"`
-	AppendRequest bool
+	Data            MultiInstanceData `json:"data,omitempty"`
+	Error           string            `json:"errmsg,omitempty"`
+	Status          int               `json:"status,omitempty"`
+	JobId           int
+	AppendAndDelete bool
 }
 
 type HostDataSourceItems struct {
 	Id int64 `json:"id,omitempty"`
 }
 
-type HostDataSourceData struct {
+type HostDataSource struct {
 	Total int                   `json:"total,omitempty"`
 	Items []HostDataSourceItems `json:"items,omitempty"`
 }
 
-type HostDataSource struct {
-	Data HostDataSourceData `json:"data,omitempty"`
-}
-
 type QueryModel struct {
-	TypeSelected             string             `json:"typeSelected"`
-	GroupSelected            LabelIntValue      `json:"groupSelected"`
-	HostSelected             LabelStringValue   `json:"hostSelected"`
-	HdsSelected              int64              `json:"hdsSelected"`
-	DataSourceSelected       DataSource         `json:"dataSourceSelected"`
-	InstanceSelected         []LabelStringValue `json:"instanceSelected"`
-	InstanceSearch           string             `json:"instanceSearch"`
-	DataPointSelected        []LabelIntValue    `json:"dataPointSelected"`
-	WithStreaming            bool               `json:"withStreaming"`
-	CollectInterval          int64              `json:"collectInterval"`
-	LastQueryEditedTimeStamp int64              `json:"lastQueryEditedTimeStamp"`
-	InstanceSelectBy         string             `json:"instanceSelectBy"`
-	InstanceRegex            string             `json:"instanceRegex"`
-	ValidInstanceRegex       bool               `json:"validInstanceRegex"`
-	IsQueryInterpolated      bool               `json:"isQueryInterpolated"`
+	TypeSelected              string             `json:"typeSelected"`
+	GroupSelected             LabelIntValue      `json:"groupSelected"`
+	HostSelected              LabelStringValue   `json:"hostSelected"`
+	HdsSelected               int64              `json:"hdsSelected"`
+	DataSourceSelected        DataSource         `json:"dataSourceSelected"`
+	InstanceSelected          []LabelStringValue `json:"instanceSelected"`
+	InstanceSearch            string             `json:"instanceSearch"`
+	DataPointSelected         []LabelIntValue    `json:"dataPointSelected"`
+	WithStreaming             bool               `json:"withStreaming"`
+	CollectInterval           int64              `json:"collectInterval"`
+	LastQueryEditedTimeStamp  int64              `json:"lastQueryEditedTimeStamp"`
+	InstanceSelectBy          string             `json:"instanceSelectBy"`
+	InstanceRegex             string             `json:"instanceRegex"`
+	ValidInstanceRegex        bool               `json:"validInstanceRegex"`
+	IsQueryInterpolated       bool               `json:"isQueryInterpolated"`
+	EnableRegexFeature        bool               `json:"enabledRegexFeature"`
+	EnableHistoricalData      bool               `json:"enabledHistoricalData"`
+	EnableDataAppendFeature   bool               `json:"enabledDataAppendFeature"`
+	EnableHostVariableFeature bool               `json:"enabledHostVariableFeature"`
 }
 
 type Error struct {
@@ -115,6 +116,12 @@ type MetaData struct {
 	IsForLastXTime         bool
 	IsCallFromQueryEditor  bool
 	TimeRangeForApiCall    []PendingTimeRange
-	AppendRequest          bool
+	AppendAndDelete        bool
+	AppendOnly             bool
 	MatchedInstances       bool
+}
+
+type ApiCallsTracker struct {
+	TimeStamp int64
+	NrOfCalls int
 }

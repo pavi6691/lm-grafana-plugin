@@ -13,6 +13,7 @@ import { MyQuery, MyDataSourceOptions } from './types';
 // import { getBackendSrv } from '@grafana/runtime';
 // import { RestClient } from 'RestClient';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
+import { Constants } from 'Constants';
 
 export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptions> {
   url?: string;
@@ -26,9 +27,14 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
   }
 
   applyTemplateVariables(query: MyQuery, scopedVars: ScopedVars): Record<string, any> {
-    if(getTemplateSrv().getVariables().length === 0 || query.variableSupport !== true) {
+    query.enabledHostVariableFeature = Constants.EnableHostVariableFeature
+    query.enabledDataAppendFeature = Constants.EnableDataAppendFeature
+    query.enabledHistoricalData = Constants.EnableHistoricalData
+    query.enabledRegexFeature = Constants.EnableRegexFeature
+    if(!Constants.EnableHostVariableFeature || getTemplateSrv().getVariables().length === 0 || query.enableHostVariable !== true) {
       return query;
     }
+    console.log("enabled2")
     const hostId = this.getValuesForVariable(getTemplateSrv().getVariables()[0].name)
     if(query.hostSelected.value === hostId.value) {
       return query

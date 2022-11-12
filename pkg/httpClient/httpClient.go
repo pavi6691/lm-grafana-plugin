@@ -17,7 +17,7 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
 
-func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) ([]byte, error) { //nolint:lll
+func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, req string, logger log.Logger) ([]byte, error) { //nolint:lll
 	url := fmt.Sprintf(constants.RootURL, pluginSettings.Path) + requestURL
 	client := &http.Client{} //nolint:exhaustivestruct
 
@@ -45,7 +45,7 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 
 	httpRequest.Header.Add(constants.UserAgent, buildGrafanaUserAgent(pluginSettings))
 
-	if resourcePath == constants.AutoCompleteNamesPath {
+	if resourcePath == constants.AutoCompleteNamesPath || req == constants.HostDataSourceReq {
 		httpRequest.Header.Add(constants.XVersion, constants.XVersionValue3)
 	}
 
@@ -62,13 +62,13 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	var respByte []byte
 	if err != nil {
 		logger.Error(constants.HttpClientErrorMakingRequest, err)
-		return nil, errors.New(constants.HttpClientErrorMakingRequest)
-	}
-	defer newResp.Body.Close()
-	respByte, err = ioutil.ReadAll(newResp.Body)
-	if err != nil {
-		logger.Error(constants.ErrorReadingResponseBody, err)
-		return nil, errors.New(constants.ErrorReadingResponseBody)
+	} else {
+		defer newResp.Body.Close()
+		respByte, err = ioutil.ReadAll(newResp.Body)
+		if err != nil {
+			logger.Error(constants.ErrorReadingResponseBody, err)
+			return nil, errors.New(constants.ErrorReadingResponseBody)
+		}
 	}
 	err = handleException(newResp, err)
 	if err != nil {

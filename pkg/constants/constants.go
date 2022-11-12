@@ -61,13 +61,15 @@ const (
 	DataNotPresentEditorCacheErrMsg   = "Data not present in Editor Cache"
 	CallApiAndAppendToEditorCache     = "Append new enrie/s to data in editorCache...."
 	CallApiAndAppendToFrameCache      = "Append to data in  FrameCache..."
-	RateLimitErrMsg                   = "Rate limit exceeded"
+	RateLimitAuditMsg                 = "Rate limit exceeded! API calls so far = %d. current = %d. Total = %d. Allowed = %d"
+	RateLimitErrMsg                   = "rate limit exceeded"
+	RateLimitValidation               = "API calls so far in last one minute = %d. current = %d. Total = %d"
 	APICallSMoreThanRateLimit         = "%d API calls required! causes rate limit error, please reduce the time range"
 	AuthSuccessMsg                    = "Authentication Success"
 	InternalServerErrorJsonErrMessage = `{ "error":"%s"}`
 	MoreThanOneHostDataSources        = "Selected variable host on variable has more than one hostDatasources for ds = "
 	HostHasNoMatchingDataSource       = "Selected variable host has no matching datasource = %s OR no instances. Tip : Disable host variable to use host in the query"
-	InstancesNotMatchingWithHosts     = "no instances are matching with regex or no instances are selected"
+	InstancesNotMatchingWithHosts     = "no matching instances found"
 )
 
 // These constants are from PathEndpoints.ts.
@@ -135,9 +137,9 @@ const (
 )
 
 const (
-	EnableFetchDataTimeRange                    = true
-	QueryEditorCacheTTLInMinutes                = 2
+	QueryEditorCacheTTLInMinutes                = 10
 	AdditionalFrameCacheTTLInMinutes            = 2
+	HostDsAndHdsMappingCacheTTLInMinutes        = 10
 	LastXMunitesCheckForFrameIdCalculationInSec = 90
 	NumberOfRecordsWithRateLimit                = 500
 )

@@ -97,7 +97,7 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 		return healthRequest, nil
 	}
 
-	respByte, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
+	respByte, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, constants.HealthCheckReq, ds.Logger)
 	if err != nil {
 		healthRequest.Message = err.Error()
 		healthRequest.Status = backend.HealthStatusError
@@ -194,7 +194,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 		})
 	}
 
-	respByte, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, ds.Logger)
+	respByte, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, req.Path, ds.Logger)
 	if err != nil {
 		ds.Logger.Info(" Error from server => ", err)
 
