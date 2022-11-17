@@ -39,11 +39,10 @@ type MultiInstanceData struct {
 }
 
 type MultiInstanceRawData struct {
-	Data            MultiInstanceData `json:"data,omitempty"`
-	Error           string            `json:"errmsg,omitempty"`
-	Status          int               `json:"status,omitempty"`
-	JobId           int
-	AppendAndDelete bool
+	Data   MultiInstanceData `json:"data,omitempty"`
+	Error  string            `json:"errmsg,omitempty"`
+	Status int               `json:"status,omitempty"`
+	JobId  int
 }
 
 type HostDataSourceItems struct {
@@ -116,8 +115,6 @@ type MetaData struct {
 	IsForLastXTime         bool
 	IsCallFromQueryEditor  bool
 	TimeRangeForApiCall    []PendingTimeRange
-	AppendAndDelete        bool
-	AppendOnly             bool
 	MatchedInstances       bool
 }
 

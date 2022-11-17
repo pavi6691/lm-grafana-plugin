@@ -103,15 +103,12 @@ func getFrameID(queryModel *models.QueryModel, query *backend.DataQuery, pluginS
 		//backword compatible
 		return getUniqueID(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
 	}
-	lastInterval := query.TimeRange.To.Unix() - query.TimeRange.From.Unix()
 	if UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60) > (time.Now().Unix() - constants.LastXMunitesCheckForFrameIdCalculationInSec) { // LastXTime, return true in this case
 		return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
-			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10) +
-			strconv.FormatInt(lastInterval, 10), true
+			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
 	} else { // FixedTimeRange, returns false for the same
 		return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
-			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10) +
-			strconv.FormatInt(query.TimeRange.From.Unix(), 10) + strconv.FormatInt(query.TimeRange.To.Unix(), 10), false
+			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), false
 	}
 }
 

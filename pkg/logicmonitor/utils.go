@@ -11,7 +11,6 @@ import (
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
-	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
@@ -26,13 +25,16 @@ func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel,
 			match, err := regexp.MatchString(queryModel.InstanceRegex, instace)
 			if err == nil && match {
 				matchedInstances = true
-				dataFrame := addFrameValues(uniqueID, instace, queryModel.DataPointSelected, instanceData.DataPoints, instanceData.Instances[key].Values,
+				dataFrame := addFrameValues(instace, queryModel.DataPointSelected, instanceData.DataPoints, instanceData.Instances[key].Values,
 					instanceData.Instances[key].Time, tempMap, queryModel, metadata, logger) //nolint:lll
 				// add the frames to the response.
 				tempMap[instace] = dataFrame
+			} else if !metadata.IsCallFromQueryEditor {
+				delete(instanceData.Instances, key)
 			}
 		}
 	} else {
+		tempInstancesSelected := make(map[string]string)
 		for _, instance := range queryModel.InstanceSelected {
 			key := instance.Label
 
@@ -56,23 +58,32 @@ func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel,
 					key = instanceData.DataSourceName + instance.Label
 				}
 			}
-			_, ok = instanceData.Instances[instanceData.DataSourceName+instance.Label]
+			_, ok = instanceData.Instances[key]
 			if ok {
 				matchedInstances = true
+				tempInstancesSelected[key] = key
 			}
-			dataFrame := addFrameValues(uniqueID, instance.Label, queryModel.DataPointSelected, instanceData.DataPoints,
+			dataFrame := addFrameValues(instance.Label, queryModel.DataPointSelected, instanceData.DataPoints,
 				instanceData.Instances[key].Values, instanceData.Instances[key].Time, tempMap, queryModel, metadata, logger) //nolint:lll
 			// add the frames to the response.
 			tempMap[instance.Label] = dataFrame
+		}
+		if !metadata.IsCallFromQueryEditor {
+			for key := range instanceData.Instances {
+				_, ok := tempInstancesSelected[key]
+				if !ok {
+					delete(instanceData.Instances, key)
+				}
+			}
 		}
 	}
 
 	return tempMap, matchedInstances
 }
 
-func addFrameValues(uniqueID string, instanceName string, dataPointSelected []models.LabelIntValue, dataPoints []string, Values [][]interface{},
+func addFrameValues(instanceName string, dataPointSelected []models.LabelIntValue, dataPoints []string, Values [][]interface{},
 	Time []int64, tempMap map[string]*data.Frame, queryModel *models.QueryModel, metaData models.MetaData, logger log.Logger) *data.Frame {
-	frame := getFrame(uniqueID, tempMap, instanceName, dataPointSelected, Values, metaData, logger)
+	frame := getFrame(tempMap, instanceName, dataPointSelected, Values, metaData, logger)
 
 	// this dataPontMap is to keep indexs of datapoints as value,
 	// so as to get relevant value from Values array for selected data points
@@ -101,6 +112,10 @@ func addFrameValues(uniqueID string, instanceName string, dataPointSelected []mo
 		if cache.GetLastestRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature) < latestTimeOfAllInstances {
 			cache.StoreLastestRawDataEntryTimestamp(metaData, latestTimeOfAllInstances, metaData.FrameCacheTTLInSeconds)
 		}
+		firstTimeOfAllInstances := time.UnixMilli(Time[len(Time)-1]).Unix()
+		if cache.GetFirstRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature) > firstTimeOfAllInstances {
+			cache.StoreFirstRawDataEntryTimestamp(metaData, firstTimeOfAllInstances, metaData.FrameCacheTTLInSeconds)
+		}
 	}
 	return frame
 }
@@ -111,70 +126,15 @@ Get frame from cache if present. this is the case when data will be just appende
 If not present in the cache then its the first call.
 Get existing frame if its for the same instance. This is in case of multiple rawdata api calls
 */
-func getFrame(uniqueID string, tempMap map[string]*data.Frame, instanceName string, dataPointSelected []models.LabelIntValue, Values [][]interface{},
+func getFrame(tempMap map[string]*data.Frame, instanceName string, dataPointSelected []models.LabelIntValue, Values [][]interface{},
 	metaData models.MetaData, logger log.Logger) *data.Frame {
 
-	// check if data frame for this instance is already present
-	var frame *data.Frame
-
-	/*
-		Get frame from cache in case its "not" from queryEditorCache, if from queryEditorCache tempMap has already old as well as new data
-	*/
-	if !metaData.IsCallFromQueryEditor {
-		frameValue, framePresent := cache.GetData(uniqueID)
-		if framePresent {
-			if df, ok := frameValue.(backend.DataResponse); ok {
-				for _, frame = range df.Frames {
-					if frame.RefID == instanceName {
-						break
-					}
-				}
-			}
-		}
+	val, ok := tempMap[instanceName]
+	if ok {
+		return val
+	} else {
+		return initiateNewDataFrame(instanceName, dataPointSelected)
 	}
-	/*
-		frame is not from cache, this is the first call
-	*/
-	if frame == nil {
-		// create data frame response.
-		val, ok := tempMap[instanceName]
-		if ok {
-			if metaData.IsCallFromQueryEditor && metaData.AppendAndDelete && !metaData.AppendOnly {
-				if len(Values) < val.Rows() {
-					// here, if its for fromQueryEditor and is to append data
-					// delete same number of intial entries as new entries to append
-					logger.Debug("Re-arrangig dataFrame : Nr of enties deleted and same number of new entries are appended.....", len(Values))
-					for i := 0; i < len(Values); i++ {
-						val.DeleteRow(i)
-					}
-				} else {
-					return initiateNewDataFrame(instanceName, dataPointSelected)
-				}
-			}
-			return val
-		} else {
-			return initiateNewDataFrame(instanceName, dataPointSelected)
-		}
-	} else if !metaData.AppendOnly {
-		/*
-			On dashboard/query is not updated recently. data already present and its a append request. dataframe is recent,
-			so to append new data, same number of initial records are removed
-		*/
-		if len(Values) < frame.Rows() {
-			/*
-				TODO importent! When new entries are appended, same amount of old entries are removed, need to check all those new entries are for
-				all datapoints selected, for missing dps also old entries are removed which is not correct. it may happen in case of multiple instance,
-				not all instance will get entries at the same time
-			*/
-			logger.Debug("Re-arrangig dataFrame : Nr of enties deleted and same number of new entries are appended.....", len(Values))
-			for i := 0; i < len(Values); i++ {
-				frame.DeleteRow(i)
-			}
-		} else {
-			return initiateNewDataFrame(instanceName, dataPointSelected)
-		}
-	}
-	return frame
 }
 
 func initiateNewDataFrame(instanceName string, dataPointSelected []models.LabelIntValue) *data.Frame {
@@ -215,7 +175,7 @@ func GetTimeRanges(from int64, to int64, collectInterval int64, metaData models.
 	}
 	if recordsToAppend > 0 {
 		if metaData.IsForLastXTime {
-			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: time.Now().Unix()})
+			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: to})
 		} else {
 			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: from + (recordsToAppend * collectInterval)})
 		}

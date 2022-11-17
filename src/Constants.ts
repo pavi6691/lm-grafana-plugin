@@ -12,7 +12,7 @@ export class Constants {
 
     static readonly EnableRegexFeature = false
     static readonly EnableHistoricalData = true
-    static readonly EnableDataAppendFeature = false
+    static readonly EnableDataAppendFeature = true
     static readonly EnableHostVariableFeature = false
 
 }
