@@ -109,13 +109,14 @@ type PendingTimeRange struct {
 }
 
 type MetaData struct {
-	FrameCacheTTLInSeconds int64
-	TempQueryEditorID      string
-	FrameId                string
-	IsForLastXTime         bool
-	IsCallFromQueryEditor  bool
-	TimeRangeForApiCall    []PendingTimeRange
-	MatchedInstances       bool
+	Id                    string
+	QueryId               string
+	CacheTTLInSeconds     int64
+	IsForLastXTime        bool
+	IsCallFromQueryEditor bool
+	TimeRangeForApiCall   []PendingTimeRange
+	MatchedInstances      bool
+	InstanceSelectedMap   map[string]int
 }
 
 type ApiCallsTracker struct {

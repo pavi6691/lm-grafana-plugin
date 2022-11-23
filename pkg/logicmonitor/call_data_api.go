@@ -26,7 +26,7 @@ func CallDataAPI(wg *sync.WaitGroup, jobs chan Job, results map[int]*models.Mult
 
 		fullPath := BuildURLReplacingQueryParams(constants.RawDataMultiInstanceReq, queryModel, job.TimeFrom, job.TimeTo, metaData)
 
-		logger.Info("Calling API  => ", pluginSettings.Path, fullPath)
+		logger.Debug("Calling API  => ", pluginSettings.Path, fullPath)
 		//todo remove the loggers
 
 		respByte, err := httpclient.Get(pluginSettings, authSettings, fullPath, constants.RawDataMultiInstanceReq, logger)

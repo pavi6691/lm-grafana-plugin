@@ -3,6 +3,7 @@ package logicmonitor
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -28,200 +29,71 @@ Start Task. This task is executed
 */
 func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData models.MetaData, authSettings *models.AuthSettings,
 	pluginSettings *models.PluginSettings, pluginContext backend.PluginContext, logger log.Logger) backend.DataResponse {
-	response := backend.DataResponse{}
 
-	/*
-		Step 2
-		Get Data from respectvie Caches, data from each cache has differrent processing machanism
-	*/
-	// if metaData.IsCallFromQueryEditor {
-	// 	if cacheData, present := cache.GetData(metaData.TempQueryEditorID); present {
-	// 		rawDataMap = cacheData.(map[int]*models.MultiInstanceRawData)
-	// 	}
-	// } else {
-	// 	if cacheData, present := cache.GetData(metaData.FrameId); present {
-	// 		rawDataMap = cacheData.(map[int]*models.MultiInstanceRawData)
-	// 	}
-	// }
+	response := backend.DataResponse{}
+	finalData := make(map[int]*models.MultiInstanceRawData)
+	dataMapLen := 0
+
+	//TODO remove start
+	logger.Info("")
+	logger.Info("ID", metaData.Id)
+	logger.Info("IsCallFromQueryEditor", metaData.IsCallFromQueryEditor)
+	logger.Info("First Entry TimeStamp", time.UnixMilli(cache.GetFirstRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature)*1000))
+	logger.Info("Last Entry TimeStamp", time.UnixMilli(cache.GetLastestRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature)*1000))
+	//TODO remove end
 
 	/*
 		Step 1
 		1. wait time is over/requets then calculate time range. Expect a new data if timeRangeForApiCall has entry
 		2. Caclulate time range for rate limits records, multiple call will be made to each time range
 	*/
-	var prependTimeRangeForApiCall []models.PendingTimeRange
-	var appendTimeRangeForApiCall []models.PendingTimeRange
-	firstRawDataEntryTimestamp := cache.GetFirstRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature)
-	lastRawDataEntryTimestamp := cache.GetLastestRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature)
-	needToPrependData := UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60) < UnixTruncateToNearestMinute(firstRawDataEntryTimestamp, 60)
-	if needToPrependData {
-		prependTimeRangeForApiCall = GetTimeRanges(UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60), firstRawDataEntryTimestamp-1, queryModel.CollectInterval, metaData, logger)
-	}
-	waitSec := GetWaitTimeInSec(metaData, queryModel.CollectInterval, queryModel.EnableDataAppendFeature)
-	needToAppendData := waitSec == 0
-	logger.Info("firstRawDataEntryTimestamp", time.UnixMilli(firstRawDataEntryTimestamp*1000))
-	logger.Info("lastRawDataEntryTimestamp", time.UnixMilli(lastRawDataEntryTimestamp*1000))
-	if (needToAppendData || needToPrependData || response.Error != nil) && (queryModel.EnableDataAppendFeature) {
-		if lastRawDataEntryTimestamp > 0 {
-			lastRawDataEntryTimestamp++ // LastTimeStamp, increase by 1 second
-		} else {
-			lastRawDataEntryTimestamp = UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
-		}
-		if queryModel.EnableHistoricalData {
-			appendTimeRangeForApiCall = GetTimeRanges(lastRawDataEntryTimestamp, query.TimeRange.To.Unix(), queryModel.CollectInterval, metaData, logger)
+	response, prependTimeRangeForApiCall, appendTimeRangeForApiCall := getTimeRange(query, queryModel, metaData, pluginContext, response, logger)
 
-		} else {
-			appendTimeRangeForApiCall = append(appendTimeRangeForApiCall, models.PendingTimeRange{From: lastRawDataEntryTimestamp, To: query.TimeRange.To.Unix()})
-		}
-		if len(prependTimeRangeForApiCall) == 0 && len(appendTimeRangeForApiCall) == 0 {
-			logger.Warn("Got no TimeRange for API call, try again, it should work!")
-		} else {
-			apisCallsSofar := cache.GetApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls
-			totalApis := apisCallsSofar + len(prependTimeRangeForApiCall) + len(appendTimeRangeForApiCall)
-			allowedNrOfCalls := constants.NumberOfRecordsWithRateLimit - apisCallsSofar
-			if totalApis > constants.NumberOfRecordsWithRateLimit {
-				logger.Error(fmt.Sprintf(constants.RateLimitAuditMsg, apisCallsSofar, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis, allowedNrOfCalls))
-				response.Error = fmt.Errorf(constants.RateLimitAuditMsg, apisCallsSofar, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis, allowedNrOfCalls)
-			} else {
-				cache.AddApiCalls(pluginContext.DataSourceInstanceSettings.UID, totalApis)
-			}
-			logger.Info(fmt.Sprintf(constants.RateLimitValidation, apisCallsSofar, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis))
-		}
-	} else if queryModel.EnableDataAppendFeature {
-		logger.Info(fmt.Sprintf("ID = %s Waiting for %d seconds for next data..", metaData.FrameId, waitSec))
-	}
-
-	//TODO remove start
-	logger.Info("")
-	//TODO remove end
-	rawDataMap := make(map[int]*models.MultiInstanceRawData)
-	dataMapLen := len(rawDataMap)
+	/*
+		Get earlier data than what is already in the cache
+	*/
 	dataFromApi := getDataFromApi(prependTimeRangeForApiCall, make(map[int]*models.MultiInstanceRawData), queryModel, metaData, authSettings, pluginSettings, logger)
 	if len(dataFromApi) > 0 {
-		//TODO remove start
-		if len(dataFromApi) > 0 {
-			tot := 0
-			for i := 0; i < len(dataFromApi); i++ {
-				var minNumOfEntriesFromInstances int = 0
-				for _, newTimeValue := range dataFromApi[i].Data.Instances {
-					if minNumOfEntriesFromInstances < len(newTimeValue.Time) {
-						minNumOfEntriesFromInstances = len(newTimeValue.Time)
-					}
-				}
-				tot = tot + minNumOfEntriesFromInstances
-			}
-			logger.Info("Prepend Number of entries", tot)
-		}
-		//TODO remove end
+		logger.Info("Prepend Nr Of Entries ", getNrOfEntries(dataFromApi))
 		for i := 0; i < len(dataFromApi); i++ {
-			rawDataMap[dataMapLen] = dataFromApi[i]
+			finalData[dataMapLen] = dataFromApi[i]
 			dataMapLen++
 		}
 	}
-	if data, ok := cache.GetData(metaData.FrameId); ok {
-		if cachedData, ok := data.(*models.MultiInstanceRawData); ok {
-			rawDataMap[dataMapLen] = cachedData
+
+	/*
+		Get data than what is already in the cache
+	*/
+	var cachedData *models.MultiInstanceRawData
+	if data, ok := cache.GetData(metaData); ok {
+		if cachedData, ok = data.(*models.MultiInstanceRawData); ok {
+			finalData[dataMapLen] = cachedData
 			dataMapLen++
 		}
-		//TODO remove start
-		var minNumOfEntriesFromInstances int = 0
-		for _, newTimeValue := range rawDataMap[dataMapLen-1].Data.Instances {
-			if minNumOfEntriesFromInstances < len(newTimeValue.Time) {
-				minNumOfEntriesFromInstances = len(newTimeValue.Time)
-			}
-		}
-		logger.Info("Cached Number of entries", minNumOfEntriesFromInstances)
-		//TODO remove end
+		logger.Info("Cached Number of entries", getNrForSingleEntry(cachedData.Data.Instances))
 	}
+
+	/*
+		Get latest data. expected more data than in cache
+	*/
 	dataFromApi = getDataFromApi(appendTimeRangeForApiCall, make(map[int]*models.MultiInstanceRawData), queryModel, metaData, authSettings, pluginSettings, logger)
 	if len(dataFromApi) > 0 {
-		//TODO remove start
-		if len(dataFromApi) > 0 {
-			tot := 0
-			for i := 0; i < len(dataFromApi); i++ {
-				var minNumOfEntriesFromInstances int = 0
-				for _, newTimeValue := range dataFromApi[i].Data.Instances {
-					if minNumOfEntriesFromInstances < len(newTimeValue.Time) {
-						minNumOfEntriesFromInstances = len(newTimeValue.Time)
-					}
-				}
-				tot = tot + minNumOfEntriesFromInstances
-			}
-			logger.Info("Append Number of entries", tot)
-		}
-		//TODO remove end
+		logger.Info("Append Number of entries", getNrOfEntries(dataFromApi))
 		for i := 0; i < len(dataFromApi); i++ {
-			rawDataMap[dataMapLen] = dataFromApi[i]
+			finalData[dataMapLen] = dataFromApi[i]
 			dataMapLen++
 		}
 	}
+	logger.Info("Total Number of entries", getNrOfEntries(finalData))
 
-	if len(rawDataMap) > 0 {
-		tot := 0
-		for i := 0; i < len(rawDataMap); i++ {
-			var minNumOfEntriesFromInstances int = 0
-			for _, newTimeValue := range rawDataMap[i].Data.Instances {
-				if minNumOfEntriesFromInstances < len(newTimeValue.Time) {
-					minNumOfEntriesFromInstances = len(newTimeValue.Time)
-				}
-			}
-			tot = tot + minNumOfEntriesFromInstances
-		}
-		logger.Info("Total Number of entries", tot)
-	}
+	response = processFinalData(queryModel, metaData, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(), finalData, response, logger)
 
-	mergedfilteredData := cache.GetDataFor(metaData, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(), rawDataMap, logger)
-	if mergedfilteredData == nil {
-		response.Error = errors.New(constants.NoDataFromLM)
-	} else {
-		// TODO remove start
-		var minNumOfEntriesFromInstances int = 0
-		for _, newTimeValue := range mergedfilteredData.Data.Instances {
-			if minNumOfEntriesFromInstances < len(newTimeValue.Time) {
-				minNumOfEntriesFromInstances = len(newTimeValue.Time)
-			}
-		}
-		logger.Info("Filtered Number of entries", minNumOfEntriesFromInstances)
-		//TODO remove end
+	logger.Info("size of data in bytes", cache.GetRealSize(metaData))
 
-	}
 	//TODO remove start
 	logger.Info("")
 	//TODO remove end
-	/*
-		Step 4
-		1. Build frame from results of all API calls. Append results from subsequent API calls in accordance to time ranges.
-		2. Store lastest timestamp of radwdata from instances
-	*/
-	var dataFrameMap = make(map[string]*data.Frame)
-	if response.Error == nil || response.Error.Error() == constants.RateLimitErrMsg {
-		if mergedfilteredData.Error != "OK" {
-			response.Error = errors.New(mergedfilteredData.Error)
-		} else {
-			dataFrameMap, metaData.MatchedInstances = BuildFrameFromMultiInstance(metaData.FrameId, &queryModel, &mergedfilteredData.Data, dataFrameMap, metaData, logger)
-		}
-	}
-	/*
-		Step 5
-		1. Check for Errors if any else store results in cache and return
-	*/
-	if len(rawDataMap) > 0 && !metaData.MatchedInstances && len(dataFrameMap) == 0 && response.Error == nil {
-		response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
-	} else if len(dataFrameMap) > 0 {
-		response.Frames = nil
-		for _, frame := range dataFrameMap {
-			response.Frames = append(response.Frames, frame)
-		}
-		// Add data to cache
-		if metaData.IsCallFromQueryEditor {
-			cache.StoreData(metaData.TempQueryEditorID, (constants.QueryEditorCacheTTLInMinutes * 60), mergedfilteredData)
-			// Store updated data in frame cache. this data returned when entry is deleted from editor temp cache.
-			// this avoids new API calls for frame cache
-			cache.StoreData(metaData.FrameId, metaData.FrameCacheTTLInSeconds, mergedfilteredData)
-		} else {
-			cache.StoreData(metaData.FrameId, metaData.FrameCacheTTLInSeconds, mergedfilteredData)
-		}
-	}
+
 	return response
 }
 
@@ -247,4 +119,219 @@ func getDataFromApi(timeRangeForApiCall []models.PendingTimeRange, rawDataMap ma
 		wg.Wait()
 	}
 	return rawDataMap
+}
+
+func getTimeRange(query backend.DataQuery, queryModel models.QueryModel, metaData models.MetaData, pluginContext backend.PluginContext,
+	response backend.DataResponse, logger log.Logger) (backend.DataResponse, []models.PendingTimeRange, []models.PendingTimeRange) {
+	var prependTimeRangeForApiCall []models.PendingTimeRange
+	var appendTimeRangeForApiCall []models.PendingTimeRange
+	var firstRawDataEntryTimestamp int64
+	if _, ok := cache.GetData(metaData); !ok {
+		// No data in cache. data is deleted(ttl) so get fresh data
+		firstRawDataEntryTimestamp = math.MaxInt64
+	} else {
+		firstRawDataEntryTimestamp = cache.GetFirstRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature)
+	}
+	needToPrependData := firstRawDataEntryTimestamp < math.MaxInt64 && firstRawDataEntryTimestamp-query.TimeRange.From.Unix() > queryModel.CollectInterval &&
+		queryModel.EnableHistoricalData
+	if needToPrependData {
+		prependTimeRangeForApiCall = GetTimeRanges(UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60), firstRawDataEntryTimestamp-1, queryModel.CollectInterval, metaData, logger)
+	}
+	waitSec := GetWaitTimeInSec(metaData, queryModel.CollectInterval, queryModel.EnableDataAppendFeature)
+	needToAppendData := waitSec == 0
+	if (needToAppendData || needToPrependData || response.Error != nil) && (queryModel.EnableDataAppendFeature) {
+		var lastRawDataEntryTimestamp int64
+		if _, ok := cache.GetData(metaData); !ok {
+			// No data in cache. data is deleted(ttl) so get fresh data
+			lastRawDataEntryTimestamp = 0
+		} else {
+			lastRawDataEntryTimestamp = cache.GetLastestRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature)
+		}
+		if lastRawDataEntryTimestamp > 0 {
+			lastRawDataEntryTimestamp++ // LastTimeStamp, increase by 1 second
+		} else {
+			lastRawDataEntryTimestamp = UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
+		}
+		if queryModel.EnableHistoricalData {
+			appendTimeRangeForApiCall = GetTimeRanges(lastRawDataEntryTimestamp, query.TimeRange.To.Unix(), queryModel.CollectInterval, metaData, logger)
+
+		} else {
+			appendTimeRangeForApiCall = append(appendTimeRangeForApiCall, models.PendingTimeRange{From: lastRawDataEntryTimestamp, To: query.TimeRange.To.Unix()})
+		}
+		if len(prependTimeRangeForApiCall) == 0 && len(appendTimeRangeForApiCall) == 0 {
+			if metaData.IsForLastXTime {
+				logger.Warn("Got no TimeRange for API call, try again, it should work!")
+			}
+		} else {
+			apisCallsSofar := cache.GetApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls
+			totalApis := apisCallsSofar + len(prependTimeRangeForApiCall) + len(appendTimeRangeForApiCall)
+			allowedNrOfCalls := constants.NumberOfRecordsWithRateLimit - apisCallsSofar
+			if totalApis > constants.NumberOfRecordsWithRateLimit {
+				logger.Error(fmt.Sprintf(constants.RateLimitAuditMsg, apisCallsSofar, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis, allowedNrOfCalls))
+				response.Error = fmt.Errorf(constants.RateLimitAuditMsg, apisCallsSofar, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis, allowedNrOfCalls)
+			} else {
+				cache.AddApiCalls(pluginContext.DataSourceInstanceSettings.UID, totalApis)
+			}
+			logger.Info(fmt.Sprintf(constants.RateLimitValidation, apisCallsSofar, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis))
+		}
+	} else if queryModel.EnableDataAppendFeature {
+		logger.Info("Waiting seconds for next data", waitSec)
+	}
+	return response, prependTimeRangeForApiCall, appendTimeRangeForApiCall
+}
+
+func processFinalData(queryModel models.QueryModel, metaData models.MetaData, from int64, to int64, rawDataMap map[int]*models.MultiInstanceRawData,
+	response backend.DataResponse, logger log.Logger) backend.DataResponse {
+	var dataFrameMap = make(map[string]*data.Frame)
+	var mergedAndFilteredResult *models.MultiInstanceRawData
+	var mergedResult *models.MultiInstanceRawData
+	filteredInstanceData := make(map[string]models.ValuesAndTime)
+	allData := make(map[string]models.ValuesAndTime)
+
+	for k := 0; k < len(rawDataMap); k++ {
+		if rawDataMap[k].Error != "OK" {
+			response.Error = errors.New(rawDataMap[k].Error)
+			mergedAndFilteredResult = &models.MultiInstanceRawData{Data: models.MultiInstanceData{DataSourceName: rawDataMap[0].Data.DataSourceName, DataPoints: rawDataMap[0].Data.DataPoints, Instances: filteredInstanceData}, Error: rawDataMap[k].Error}
+			return response
+		}
+		for instanceName, valueAndTime := range rawDataMap[k].Data.Instances {
+			var Time []int64
+			Values := make([][]interface{}, len(queryModel.DataPointSelected))
+			var frame *data.Frame
+			dataPontMap := make(map[string]int)
+			// Check if instance selected/regex matching
+			shortenInstance, matched := IsInstanceMatched(metaData, &queryModel, rawDataMap[k].Data.DataSourceName, instanceName)
+			if matched {
+				metaData.MatchedInstances = true
+				frame = getFrame(dataFrameMap, shortenInstance, queryModel.DataPointSelected)
+				// this dataPontMap is to keep indexs of datapoints as value,
+				// so as to get relevant value from Values array for selected data points
+				for i, v := range rawDataMap[k].Data.DataPoints {
+					dataPontMap[v] = i
+				}
+			}
+			// filter only for time range from query And store in frame
+			for i := 0; i < len(valueAndTime.Time); i++ {
+				t := time.UnixMilli(valueAndTime.Time[i]).Unix()
+				if from <= t && to >= t { // filter condition
+					//
+					if matched {
+						vals := make([]interface{}, len(frame.Fields))
+						var idx = 1
+						vals[0] = time.UnixMilli(valueAndTime.Time[i])
+						Time = append(Time, valueAndTime.Time[i])
+						for dpIndx, dp := range queryModel.DataPointSelected {
+							fieldIdx := dataPontMap[dp.Label]
+							if valueAndTime.Values[i][fieldIdx] == constants.NoData {
+								vals[idx] = math.NaN()
+							} else {
+								vals[idx] = valueAndTime.Values[i][fieldIdx]
+							}
+							Values[dpIndx] = append(Values[dpIndx], valueAndTime.Values[i][fieldIdx])
+							idx++
+						}
+						frame.AppendRow(vals...)
+					}
+					//
+				} else if len(filteredInstanceData) > 0 {
+					break
+				}
+			}
+
+			if matched {
+				//addFrameValues(shortenInstance, queryModel.DataPointSelected, dataPontMap, Values, Time, dataFrameMap, &queryModel, metaData, logger)
+				dataFrameMap[shortenInstance] = frame
+			}
+
+			if matched || metaData.IsCallFromQueryEditor {
+				// Set filtered data. donot store instance that is not selected/matching with regext, unless its for queryEditor
+				if _, ok := filteredInstanceData[instanceName]; ok {
+					filteredInstanceData[instanceName] = models.ValuesAndTime{Time: append(Time, filteredInstanceData[instanceName].Time...), Values: append(Values, filteredInstanceData[instanceName].Values...)}
+				} else if len(Time) > 0 && len(Values) > 0 {
+					filteredInstanceData[instanceName] = models.ValuesAndTime{Time: Time, Values: Values}
+				}
+
+				// Set all Data
+				if _, ok := allData[instanceName]; ok {
+					allData[instanceName] = models.ValuesAndTime{Time: append(valueAndTime.Time, allData[instanceName].Time...), Values: append(valueAndTime.Values, allData[instanceName].Values...)}
+				} else if len(valueAndTime.Time) > 0 && len(valueAndTime.Values) > 0 {
+					allData[instanceName] = models.ValuesAndTime{Time: valueAndTime.Time, Values: valueAndTime.Values}
+				}
+
+				// Set all First and Last time of all records
+				SetFirstTimeStamp(queryModel, metaData, valueAndTime, logger)
+				SetLastTimeStamp(queryModel, metaData, valueAndTime, logger)
+			}
+		}
+	}
+
+	if len(filteredInstanceData) > 0 && len(rawDataMap) > 0 {
+		mergedAndFilteredResult = &models.MultiInstanceRawData{Data: models.MultiInstanceData{DataSourceName: rawDataMap[len(rawDataMap)-1].Data.DataSourceName, DataPoints: rawDataMap[len(rawDataMap)-1].Data.DataPoints, Instances: filteredInstanceData}, Error: "OK"}
+	}
+
+	if len(allData) > 0 && len(rawDataMap) > 0 {
+		mergedResult = &models.MultiInstanceRawData{Data: models.MultiInstanceData{DataSourceName: rawDataMap[len(rawDataMap)-1].Data.DataSourceName, DataPoints: rawDataMap[len(rawDataMap)-1].Data.DataPoints, Instances: allData}, Error: "OK"}
+	}
+
+	if mergedAndFilteredResult == nil {
+		response.Error = errors.New(constants.NoDataFromLM)
+	} else {
+		logger.Info("Filtered Number of entries", getNrForSingleEntry(filteredInstanceData))
+		if len(rawDataMap) > 0 && !metaData.MatchedInstances && len(dataFrameMap) == 0 && response.Error == nil {
+			response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
+		} else if len(dataFrameMap) > 0 {
+			response.Frames = nil
+			for _, frame := range dataFrameMap {
+				response.Frames = append(response.Frames, frame)
+			}
+			// Add data to cache
+			cache.StoreData(metaData, mergedResult)
+			logger.Info("Cache size (same as number of panels)", cache.GetCount())
+		}
+	}
+	return response
+}
+
+// Set First record TimeStamp
+func SetFirstTimeStamp(queryModel models.QueryModel, metaData models.MetaData, valueAndTime models.ValuesAndTime, logger log.Logger) {
+	if queryModel.EnableDataAppendFeature {
+		if len(valueAndTime.Time) > 0 {
+			firstTimeOfAllInstances := time.UnixMilli(valueAndTime.Time[len(valueAndTime.Time)-1]).Unix()
+			if cache.GetFirstRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature) > firstTimeOfAllInstances {
+				cache.StoreFirstRawDataEntryTimestamp(metaData, firstTimeOfAllInstances)
+			}
+		}
+	}
+}
+
+// Set Last record TimeStamp
+func SetLastTimeStamp(queryModel models.QueryModel, metaData models.MetaData, valueAndTime models.ValuesAndTime, logger log.Logger) {
+	if queryModel.EnableDataAppendFeature {
+		if len(valueAndTime.Time) > 0 {
+			latestTimeOfAllInstances := time.UnixMilli(valueAndTime.Time[0]).Unix()
+			if cache.GetLastestRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature) < latestTimeOfAllInstances {
+				cache.StoreLastestRawDataEntryTimestamp(metaData, latestTimeOfAllInstances)
+			}
+		}
+	}
+}
+
+func getNrOfEntries(data map[int]*models.MultiInstanceRawData) int {
+	tot := 0
+	if len(data) > 0 {
+		for i := len(data) - 1; i >= 0; i-- {
+			tot = tot + getNrForSingleEntry(data[i].Data.Instances)
+		}
+	}
+	return tot
+}
+
+func getNrForSingleEntry(instances map[string]models.ValuesAndTime) int {
+	var minNumOfEntriesFromInstances int = 0
+	for _, newTimeValue := range instances {
+		if minNumOfEntriesFromInstances < len(newTimeValue.Time) {
+			minNumOfEntriesFromInstances = len(newTimeValue.Time)
+		}
+	}
+	return minNumOfEntriesFromInstances
 }

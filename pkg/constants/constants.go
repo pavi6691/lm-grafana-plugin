@@ -138,8 +138,8 @@ const (
 )
 
 const (
-	QueryEditorCacheTTLInMinutes                = 10
-	AdditionalFrameCacheTTLInMinutes            = 2
+	QueryDataTTLInMinutes                       = 10
+	AdditionalCacheTTLInMinutes                 = 2
 	HostDsAndHdsMappingCacheTTLInMinutes        = 10
 	LastXMunitesCheckForFrameIdCalculationInSec = 90
 	NumberOfRecordsWithRateLimit                = 500

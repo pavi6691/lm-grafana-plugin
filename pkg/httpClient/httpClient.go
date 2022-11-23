@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 	"time"
 
@@ -31,9 +32,9 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	resourcePath := strings.ReplaceAll(httpRequest.URL.Path, constants.SantabaRestPath, "")
 
 	// todo
-	logger.Debug("The resource path is ", resourcePath)
-	logger.Debug("The httpRequest.URL.Path is ", httpRequest.URL.Path)
-	logger.Debug("The full path is ", requestURL)
+	logger.Info("The resource path is ", resourcePath)
+	logger.Info("The httpRequest.URL.Path is ", httpRequest.URL.Path)
+	logger.Info("The full path is ", requestURL)
 
 	if pluginSettings.IsLMV1Enabled {
 		httpRequest.Header.Add(constants.Authorization, getLMv1(pluginSettings.AccessID, authSettings.AccessKey, resourcePath)) //nolint:lll
@@ -50,13 +51,13 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	}
 
 	//	//todo remove this
-	// reqDump, err := httputil.DumpRequest(httpRequest, true)
-	// if err != nil {
-	// 	logger.Error(err.Error())
-	// 	return nil, err
-	// }
+	reqDump, err := httputil.DumpRequest(httpRequest, true)
+	if err != nil {
+		logger.Error(err.Error())
+		return nil, err
+	}
 
-	// logger.Info("Hitting HTTP request with headers => ", string(reqDump), err)
+	logger.Info("Hitting HTTP request with headers => ", string(reqDump), err)
 
 	newResp, err := client.Do(httpRequest)
 	var respByte []byte

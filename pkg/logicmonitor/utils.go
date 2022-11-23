@@ -2,7 +2,6 @@ package logicmonitor
 
 import (
 	"fmt"
-	"math"
 	"net/url"
 	"regexp"
 	"strings"
@@ -15,109 +14,36 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
-// build frames for response with multi instances ref @MultiInstanceDataUrl
-func BuildFrameFromMultiInstance(uniqueID string, queryModel *models.QueryModel, instanceData *models.MultiInstanceData, tempMap map[string]*data.Frame,
-	metadata models.MetaData, logger log.Logger) (map[string]*data.Frame, bool) {
-	var matchedInstances bool = false
+func IsInstanceMatched(metadata models.MetaData, queryModel *models.QueryModel, dataSourceName string, instanceName string) (string, bool) {
 	if queryModel.EnableRegexFeature && queryModel.ValidInstanceRegex && queryModel.InstanceSelectBy == constants.Regex {
-		for key := range instanceData.Instances {
-			instace := key[strings.IndexByte(key, '-')+1:]
-			match, err := regexp.MatchString(queryModel.InstanceRegex, instace)
-			if err == nil && match {
-				matchedInstances = true
-				dataFrame := addFrameValues(instace, queryModel.DataPointSelected, instanceData.DataPoints, instanceData.Instances[key].Values,
-					instanceData.Instances[key].Time, tempMap, queryModel, metadata, logger) //nolint:lll
-				// add the frames to the response.
-				tempMap[instace] = dataFrame
-			} else if !metadata.IsCallFromQueryEditor {
-				delete(instanceData.Instances, key)
-			}
-		}
-	} else {
-		tempInstancesSelected := make(map[string]string)
+		instace := instanceName[strings.IndexByte(instanceName, '-')+1:]
+		match, err := regexp.MatchString(queryModel.InstanceRegex, instace)
+		return instace, err == nil && match
+	} else if queryModel.InstanceSelectBy == constants.Select {
 		for _, instance := range queryModel.InstanceSelected {
 			key := instance.Label
-
 			/* form key for the instance map, below is the instance name formation from santaba
 			if (ds.getHasMultiInstance()) {
 				if (ds.getName().endsWith("-")) {
-			        builder.setName(ds.getName() + alias);
+					builder.setName(ds.getName() + alias);
 				} else {
-			        builder.setName(ds.getName() + "-" + alias);
-			    }
+					builder.setName(ds.getName() + "-" + alias);
+				}
 			} else {
-			    builder.setName(ds.getName() + alias);
+				builder.setName(ds.getName() + alias);
 			}
 			*/
-			_, ok := instanceData.Instances[instanceData.DataSourceName+string(constants.DataSourceAndInstanceDelim)+instance.Label]
-			if ok {
-				key = instanceData.DataSourceName + string(constants.DataSourceAndInstanceDelim) + instance.Label
-			} else {
-				_, ok = instanceData.Instances[instanceData.DataSourceName+instance.Label]
-				if ok {
-					key = instanceData.DataSourceName + instance.Label
-				}
+			if instanceName == dataSourceName+string(constants.DataSourceAndInstanceDelim)+instance.Label {
+				key = dataSourceName + string(constants.DataSourceAndInstanceDelim) + instance.Label
+			} else if instanceName == dataSourceName+instance.Label {
+				key = dataSourceName + instance.Label
 			}
-			_, ok = instanceData.Instances[key]
-			if ok {
-				matchedInstances = true
-				tempInstancesSelected[key] = key
-			}
-			dataFrame := addFrameValues(instance.Label, queryModel.DataPointSelected, instanceData.DataPoints,
-				instanceData.Instances[key].Values, instanceData.Instances[key].Time, tempMap, queryModel, metadata, logger) //nolint:lll
-			// add the frames to the response.
-			tempMap[instance.Label] = dataFrame
-		}
-		if !metadata.IsCallFromQueryEditor {
-			for key := range instanceData.Instances {
-				_, ok := tempInstancesSelected[key]
-				if !ok {
-					delete(instanceData.Instances, key)
-				}
+			if instanceName == key {
+				return instance.Label, true
 			}
 		}
 	}
-
-	return tempMap, matchedInstances
-}
-
-func addFrameValues(instanceName string, dataPointSelected []models.LabelIntValue, dataPoints []string, Values [][]interface{},
-	Time []int64, tempMap map[string]*data.Frame, queryModel *models.QueryModel, metaData models.MetaData, logger log.Logger) *data.Frame {
-	frame := getFrame(tempMap, instanceName, dataPointSelected, Values, metaData, logger)
-
-	// this dataPontMap is to keep indexs of datapoints as value,
-	// so as to get relevant value from Values array for selected data points
-	dataPontMap := make(map[string]int)
-	for i, v := range dataPoints {
-		dataPontMap[v] = i
-	}
-	// first entry for recent timestamp, so append from last to first, so the sequence is maintained
-	for i := len(Values) - 1; i >= 0; i-- {
-		vals := make([]interface{}, len(frame.Fields))
-		var idx = 1
-		vals[0] = time.UnixMilli(Time[i])
-		for _, dp := range dataPointSelected {
-			fieldIdx := dataPontMap[dp.Label]
-			if Values[i][fieldIdx] == constants.NoData {
-				vals[idx] = math.NaN()
-			} else {
-				vals[idx] = Values[i][fieldIdx]
-			}
-			idx++
-		}
-		frame.AppendRow(vals...)
-	}
-	if queryModel.EnableDataAppendFeature && len(Time) > 0 {
-		latestTimeOfAllInstances := time.UnixMilli(Time[0]).Unix()
-		if cache.GetLastestRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature) < latestTimeOfAllInstances {
-			cache.StoreLastestRawDataEntryTimestamp(metaData, latestTimeOfAllInstances, metaData.FrameCacheTTLInSeconds)
-		}
-		firstTimeOfAllInstances := time.UnixMilli(Time[len(Time)-1]).Unix()
-		if cache.GetFirstRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature) > firstTimeOfAllInstances {
-			cache.StoreFirstRawDataEntryTimestamp(metaData, firstTimeOfAllInstances, metaData.FrameCacheTTLInSeconds)
-		}
-	}
-	return frame
+	return instanceName, false
 }
 
 /*
@@ -126,8 +52,7 @@ Get frame from cache if present. this is the case when data will be just appende
 If not present in the cache then its the first call.
 Get existing frame if its for the same instance. This is in case of multiple rawdata api calls
 */
-func getFrame(tempMap map[string]*data.Frame, instanceName string, dataPointSelected []models.LabelIntValue, Values [][]interface{},
-	metaData models.MetaData, logger log.Logger) *data.Frame {
+func getFrame(tempMap map[string]*data.Frame, instanceName string, dataPointSelected []models.LabelIntValue) *data.Frame {
 
 	val, ok := tempMap[instanceName]
 	if ok {

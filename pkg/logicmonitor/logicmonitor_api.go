@@ -70,57 +70,49 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 		}
 	}
 
-	metaData.TempQueryEditorID = getQueryEditorTempID(&queryModel, &query, pluginSettings)
-	metaData.FrameId, metaData.IsForLastXTime = getFrameID(&queryModel, &query, pluginSettings)
 	metaData.IsCallFromQueryEditor = checkIfCallFromQueryEditor(&queryModel)
-	metaData.FrameCacheTTLInSeconds = queryModel.CollectInterval + (constants.AdditionalFrameCacheTTLInMinutes * 60)
-	logger.Debug("tempQueryEditorID ==> ", metaData.TempQueryEditorID)
-	logger.Debug("frameID ==> ", metaData.FrameId)
-	logger.Debug("isForLastXTime ==> ", metaData.IsForLastXTime)
-
+	metaData.Id, metaData.IsForLastXTime = getUniqueID(&queryModel, &query, pluginSettings, metaData)
+	metaData.QueryId = getQueryId(&queryModel, &query, pluginSettings)
+	metaData.CacheTTLInSeconds = queryModel.CollectInterval + (constants.AdditionalCacheTTLInMinutes * 60)
+	metaData.InstanceSelectedMap = make(map[string]int)
+	for i, v := range queryModel.InstanceSelected {
+		metaData.InstanceSelectedMap[v.Label] = i
+	}
+	logger.Debug("metaData ==> ", metaData)
 	return GetData(query, queryModel, metaData, authSettings, pluginSettings, pluginContext, logger)
 }
 
-func getQueryEditorTempID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string { //nolint:lll
+func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings, metaData models.MetaData) (string, bool) { //nolint:lll
 	if !queryModel.EnableDataAppendFeature {
 		//backword compatible
-		return getUniqueID(queryModel, query, pluginSettings)
+		return getIDForOneMinute(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
 	}
 	if UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60) > (time.Now().Unix() - constants.LastXMunitesCheckForFrameIdCalculationInSec) { // LastXTime, return true in this case
-		return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
-			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
-			strconv.FormatInt(query.TimeRange.To.Unix()-query.TimeRange.From.Unix(), 10)
+		if metaData.IsCallFromQueryEditor {
+			return getQueryId(queryModel, query, pluginSettings), true
+		} else {
+			return getQueryId(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
+		}
 	} else { // FixedTimeRange, returns false for the same
-		return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
-			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
-			strconv.FormatInt(query.TimeRange.From.Unix(), 10) + strconv.FormatInt(query.TimeRange.To.Unix(), 10)
-	}
-
-}
-
-func getFrameID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) (string, bool) { //nolint:lll
-	if !queryModel.EnableDataAppendFeature {
-		//backword compatible
-		return getUniqueID(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
-	}
-	if UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60) > (time.Now().Unix() - constants.LastXMunitesCheckForFrameIdCalculationInSec) { // LastXTime, return true in this case
-		return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
-			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
-	} else { // FixedTimeRange, returns false for the same
-		return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
-			queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), false
+		if metaData.IsCallFromQueryEditor {
+			return getQueryId(queryModel, query, pluginSettings), false
+		} else {
+			return getQueryId(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), false
+		}
 	}
 }
 
-func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string { //nolint:lll
-	lastFromTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
-	lastToTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60)
-
+func getQueryId(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string {
 	return pluginSettings.Path + queryModel.TypeSelected + queryModel.GroupSelected.Label +
-		queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label +
-		strconv.FormatInt(lastFromTimeUnixTruncated, 10) + strconv.FormatInt(lastToTimeUnixTruncated, 10)
+		queryModel.HostSelected.Label + queryModel.DataSourceSelected.Label
+}
+
+func getIDForOneMinute(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings) string { //nolint:lll
+	FromTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
+	ToTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60)
+	return getQueryId(queryModel, query, pluginSettings) + strconv.FormatInt(FromTimeUnixTruncated, 10) + strconv.FormatInt(ToTimeUnixTruncated, 10)
 }
 
 func checkIfCallFromQueryEditor(queryModel *models.QueryModel) bool {
-	return (time.Now().UnixMilli()-queryModel.LastQueryEditedTimeStamp)/1000 < (constants.QueryEditorCacheTTLInMinutes * 60)
+	return (time.Now().UnixMilli()-queryModel.LastQueryEditedTimeStamp)/1000 < 10
 }

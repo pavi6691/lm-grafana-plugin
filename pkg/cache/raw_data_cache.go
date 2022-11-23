@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"bytes"
+	"encoding/gob"
 	"time"
 
 	"github.com/ReneKroon/ttlcache"
@@ -12,21 +14,39 @@ import (
 // this avoids multiple http calls while making selection.
 var rawDataCache = ttlcache.NewCache() //nolint:gochecknoglobals
 
-func GetData(id string) (interface{}, bool) {
-	return rawDataCache.Get(id)
+func GetData(metaData models.MetaData) (interface{}, bool) {
+	if _, ok := rawDataCache.Get(metaData.Id); !ok {
+		if v, ok := rawDataCache.Get(metaData.QueryId); ok {
+			// copy data with query id to ID, Data with ID holds only necessory data not all
+			rawDataCache.SetWithTTL(metaData.Id, v, time.Duration(metaData.CacheTTLInSeconds)*time.Second)
+			rawDataCache.Remove(metaData.QueryId)
+		}
+	}
+	return rawDataCache.Get(metaData.Id)
 }
 
 func GetCount() int {
 	return rawDataCache.Count()
 }
 
-func StoreData(id string, ttl int64, rawDataMap *models.MultiInstanceRawData) {
-	rawDataCache.SetWithTTL(id, rawDataMap, time.Duration(ttl)*time.Second)
+func GetRealSize(metaData models.MetaData) int {
+	b := new(bytes.Buffer)
+	v, ok := GetData(metaData)
+	if ok {
+		if err := gob.NewEncoder(b).Encode(v); err != nil {
+			return 0
+		}
+	}
+	return b.Len()
 }
 
-func StoreDataAt(id string, ttl int64, presentAt int, newData *models.MultiInstanceRawData, logger log.Logger) {
+func StoreData(metaData models.MetaData, rawDataMap *models.MultiInstanceRawData) {
+	rawDataCache.SetWithTTL(metaData.Id, rawDataMap, time.Duration(metaData.CacheTTLInSeconds)*time.Second)
+}
+
+func StoreDataAt(metaData models.MetaData, presentAt int, newData *models.MultiInstanceRawData, logger log.Logger) {
 	rawDataMap := make(map[int]*models.MultiInstanceRawData)
-	if data, ok := GetData(id); ok {
+	if data, ok := GetData(metaData); ok {
 		rawDataMap = data.(map[int]*models.MultiInstanceRawData)
 		if _, ok := rawDataMap[presentAt]; ok {
 			rawDataMap[presentAt] = newData
@@ -37,7 +57,7 @@ func StoreDataAt(id string, ttl int64, presentAt int, newData *models.MultiInsta
 	} else {
 		rawDataMap[0] = newData
 	}
-	rawDataCache.SetWithTTL(id, rawDataMap, time.Duration(ttl)*time.Second)
+	rawDataCache.SetWithTTL(metaData.Id, rawDataMap, time.Duration(metaData.CacheTTLInSeconds)*time.Second)
 }
 
 func StoreAdditionalDataAt(index int, dataToAdd *models.MultiInstanceRawData, rawDataMap map[int]*models.MultiInstanceRawData) map[int]*models.MultiInstanceRawData {
@@ -51,7 +71,7 @@ func StoreAdditionalDataAt(index int, dataToAdd *models.MultiInstanceRawData, ra
 }
 
 func IsDataForTimeRangePresentIncCache(metaData models.MetaData, from int64, to int64, logger log.Logger) (bool, int) {
-	if data, ok := GetData(metaData.FrameId); ok {
+	if data, ok := GetData(metaData); ok {
 		logger.Info("001")
 		rawDataMap := data.(map[int]*models.MultiInstanceRawData)
 		if len(rawDataMap) > 0 {
@@ -78,50 +98,4 @@ func IsDataForTimeRangePresentIncCache(metaData models.MetaData, from int64, to 
 		}
 	}
 	return false, -1
-}
-
-func GetDataFor(metaData models.MetaData, from int64, to int64, newRawDataMap map[int]*models.MultiInstanceRawData, logger log.Logger) *models.MultiInstanceRawData {
-	var result *models.MultiInstanceRawData
-	tempInstanceData := make(map[string]models.ValuesAndTime)
-	// var vt models.ValuesAndTime
-	for k := 0; k < len(newRawDataMap); k++ {
-		// logger.Info("2")
-		if newRawDataMap[k].Error != "OK" {
-			// logger.Info("3")
-			return &models.MultiInstanceRawData{Data: models.MultiInstanceData{DataSourceName: newRawDataMap[0].Data.DataSourceName, DataPoints: newRawDataMap[0].Data.DataPoints, Instances: tempInstanceData}, Error: newRawDataMap[k].Error}
-		}
-		// logger.Info("4")
-		for instanceName, valueAndTime := range newRawDataMap[k].Data.Instances {
-			// logger.Info("5")
-			var Timet []int64
-			var Valuest [][]interface{}
-			for i := 0; i < len(valueAndTime.Time); i++ {
-				// logger.Info("6")
-				t := time.UnixMilli(valueAndTime.Time[i]).Unix()
-				if from <= t && to >= t {
-					Timet = append(Timet, valueAndTime.Time[i])
-					Valuest = append(Valuest, valueAndTime.Values[i])
-				} else if len(tempInstanceData) > 0 {
-					break
-				}
-			}
-			if _, ok := tempInstanceData[instanceName]; ok {
-				// logger.Info("Sucess")
-				tempInstanceData[instanceName] = models.ValuesAndTime{Time: append(Timet, tempInstanceData[instanceName].Time...), Values: append(Valuest, tempInstanceData[instanceName].Values...)}
-			} else if len(Timet) > 0 && len(Valuest) > 0 {
-				tempInstanceData[instanceName] = models.ValuesAndTime{Time: Timet, Values: Valuest}
-			}
-			// vt = models.ValuesAndTime{Time: Timet, Values: Valuest}
-		}
-	}
-	// logger.Info("")
-	// for _, v := range vt.Time {
-	// 	logger.Info("time => ", time.UnixMilli(v))
-	// }
-	// logger.Info("7")
-	if len(tempInstanceData) > 0 {
-		// logger.Info("8")
-		result = &models.MultiInstanceRawData{Data: models.MultiInstanceData{DataSourceName: newRawDataMap[0].Data.DataSourceName, DataPoints: newRawDataMap[0].Data.DataPoints, Instances: tempInstanceData}, Error: "OK"}
-	}
-	return result
 }
