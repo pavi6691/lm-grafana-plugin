@@ -13,7 +13,7 @@ interface State {}
 const json = require('../package.json');
 
 export class ConfigEditor extends PureComponent<Props, State> {
-  
+
   onPathChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onOptionsChange, options } = this.props;
     const jsonData = {
@@ -34,7 +34,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
     onOptionsChange({ ...options, secureJsonData });
   };
 
-//AccessId 
+//AccessId
   onAccessIdChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onOptionsChange, options } = this.props;
     const jsonData = {
@@ -89,6 +89,15 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const jsonData = {
       ...options.jsonData,
       isLMV1Enabled: event.currentTarget.checked,
+    };
+    onOptionsChange({ ...options, jsonData });
+  };
+
+  onSkipTLSVarify = (event: SyntheticEvent<HTMLInputElement>) => {
+    const { onOptionsChange, options } = this.props;
+    const jsonData = {
+      ...options.jsonData,
+      skipTLSVarify: event.currentTarget.checked,
     };
     onOptionsChange({ ...options, jsonData });
   };
@@ -188,17 +197,26 @@ export class ConfigEditor extends PureComponent<Props, State> {
         {(jsonData.isLMV1Enabled) && <div className="gf-form-inline">
           <div className="gf-form">
             <SecretFormField
-              isConfigured={(secureJsonFields && secureJsonFields.accessKey) as boolean} 
+              isConfigured={(secureJsonFields && secureJsonFields.accessKey) as boolean}
               value={secureJsonData.accessKey || ''}
               label="Access Key"
               placeholder="Enter Access Key"
               labelWidth={10}
               inputWidth={20}
-              onReset={this.onResetAccessKey}    
-              onChange={this.onAccessKeyChange}  
+              onReset={this.onResetAccessKey}
+              onChange={this.onAccessKeyChange}
             />
           </div>
         </div>}
+        <div style={{ display: 'flex', marginTop:40 }}>
+           <InlineLabel width={20}>Skip TLS Varify</InlineLabel>
+               <InlineSwitch
+                    defaultChecked={jsonData.skipTLSVarify}
+                    checked={jsonData.skipTLSVarify}
+                    showLabel={true}
+                    onChange={this.onSkipTLSVarify}
+                  />
+                </div>
         </div>
     );
   }

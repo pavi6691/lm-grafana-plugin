@@ -36,6 +36,7 @@ export interface MyDataSourceOptions extends DataSourceJsonData {
   accessId?: string;
   isLMV1Enabled?: boolean;
   isBearerEnabled?: boolean;
+  skipTLSVarify?: boolean;
 }
 /**
  * Value that is used in the backend, but never sent over HTTP to the frontend

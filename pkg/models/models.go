@@ -99,6 +99,7 @@ type PluginSettings struct {
 	IsBearerEnabled bool   `json:"isBearerEnabled"`
 	IsLMV1Enabled   bool   `json:"isLMV1Enabled"` //nolint:tagliatelle
 	Version         string `json:"version"`
+	SkipTLSVarify   bool   `json:"skipTLSVarify"`
 }
 
 type AuthSettings struct {

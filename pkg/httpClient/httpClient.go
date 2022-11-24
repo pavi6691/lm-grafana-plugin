@@ -3,6 +3,7 @@ package httpclient
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
 	b64 "encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -49,6 +50,8 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	if resourcePath == constants.AutoCompleteNamesPath || req == constants.HostDataSourceReq {
 		httpRequest.Header.Add(constants.XVersion, constants.XVersionValue3)
 	}
+
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: pluginSettings.SkipTLSVarify}
 
 	//	//todo remove this
 	reqDump, err := httputil.DumpRequest(httpRequest, true)
