@@ -1,5 +1,5 @@
 import React, { SyntheticEvent, ChangeEvent, PureComponent } from 'react';
-import { LegacyForms } from '@grafana/ui';
+import { InlineLabel, InlineSwitch, LegacyForms } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { MyDataSourceOptions, MySecureJsonData } from './types';
 
@@ -89,6 +89,15 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const jsonData = {
       ...options.jsonData,
       isLMV1Enabled: event.currentTarget.checked,
+    };
+    onOptionsChange({ ...options, jsonData });
+  };
+
+  onSkipTLSVarify = (event: SyntheticEvent<HTMLInputElement>) => {
+    const { onOptionsChange, options } = this.props;
+    const jsonData = {
+      ...options.jsonData,
+      skipTLSVarify: event.currentTarget.checked,
     };
     onOptionsChange({ ...options, jsonData });
   };
@@ -198,6 +207,15 @@ export class ConfigEditor extends PureComponent<Props, State> {
               onChange={this.onAccessKeyChange}
             />
           </div>
+        </div>
+        <div style={{ display: 'flex', marginTop:40 }}>
+          <InlineLabel width={20}>Skip TLS Varify</InlineLabel>
+          <InlineSwitch
+            defaultChecked={jsonData.skipTLSVarify}
+            checked={jsonData.skipTLSVarify}
+            showLabel={true}
+            onChange={this.onSkipTLSVarify}
+          />
         </div>
       </div>
     );
