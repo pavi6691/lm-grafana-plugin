@@ -21,7 +21,13 @@ import (
 
 func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, req string, logger log.Logger) ([]byte, error) { //nolint:lll
 	url := fmt.Sprintf(constants.RootURL, pluginSettings.Path) + requestURL
-	client := &http.Client{} //nolint:exhaustivestruct
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: pluginSettings.SkipTLSVarify,
+			},
+		},
+	}
 
 	httpRequest, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -50,8 +56,6 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	if resourcePath == constants.AutoCompleteNamesPath || req == constants.HostDataSourceReq {
 		httpRequest.Header.Add(constants.XVersion, constants.XVersionValue3)
 	}
-
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: pluginSettings.SkipTLSVarify}
 
 	//	//todo remove this
 	reqDump, err := httputil.DumpRequest(httpRequest, true)
