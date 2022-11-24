@@ -3,6 +3,7 @@ package httpclient
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
 	b64 "encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -19,7 +20,13 @@ import (
 
 func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, logger log.Logger) ([]byte, error) { //nolint:lll
 	url := fmt.Sprintf(constants.RootURL, pluginSettings.Path) + requestURL
-	client := &http.Client{} //nolint:exhaustivestruct
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: pluginSettings.SkipTLSVarify,
+			},
+		},
+	}
 
 	httpRequest, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
