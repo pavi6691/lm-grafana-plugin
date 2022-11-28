@@ -2,13 +2,14 @@ package httpclient
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 )
 
-func handleException(response *http.Response, err error) error {
+func handleException(response *http.Response, respByte []byte, err error) error {
 	if err != nil {
 		if strings.Contains(err.Error(), constants.NoSuchHostError) {
 			err = errors.New(constants.InvalidCompanyName)
@@ -30,6 +31,10 @@ func handleException(response *http.Response, err error) error {
 
 	if response.StatusCode == http.StatusTooManyRequests {
 		return errors.New(constants.RateLimitErrMsg)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return errors.New(fmt.Sprintf(constants.HttpNotOk, response.StatusCode, string(respByte)))
 	}
 
 	return nil

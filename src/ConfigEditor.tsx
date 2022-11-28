@@ -1,4 +1,4 @@
-import React, { SyntheticEvent,ChangeEvent, PureComponent } from 'react';
+import React, { SyntheticEvent, ChangeEvent, PureComponent } from 'react';
 import { InlineLabel, InlineSwitch, LegacyForms } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { MyDataSourceOptions, MySecureJsonData } from './types';
@@ -6,9 +6,9 @@ import { Constants } from 'Constants';
 
 const { SecretFormField, FormField } = LegacyForms;
 
-interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceOptions, MySecureJsonData> {}
+interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceOptions, MySecureJsonData> { }
 
-interface State {}
+interface State { }
 
 const json = require('../package.json');
 
@@ -29,12 +29,12 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const { onOptionsChange, options } = this.props;
     const secureJsonData = {
       ...options.secureJsonData,
-        bearer_token: event.target.value,
-      };
+      bearer_token: event.target.value,
+    };
     onOptionsChange({ ...options, secureJsonData });
   };
 
-//AccessId
+  //AccessId
   onAccessIdChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onOptionsChange, options } = this.props;
     const jsonData = {
@@ -44,7 +44,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
     onOptionsChange({ ...options, jsonData });
   };
 
-//AccessKey
+  //AccessKey
   onAccessKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onOptionsChange, options } = this.props;
     const secureJsonData = {
@@ -120,7 +120,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
     }
     return (
       <div className="gf-form-group">
-        <div className="gf-form" style={{ display: 'flex', marginBottom:50 }}>
+        <div className="gf-form" style={{ display: 'flex', marginBottom: 50 }}>
           <FormField
             label="Portal Name"
             labelWidth={10}
@@ -132,38 +132,38 @@ export class ConfigEditor extends PureComponent<Props, State> {
         </div>
 
         {Constants.EnableBearerToken && <div className="box">
-          <div style={{ display: 'flex', marginBottom:2 }}>
-              <h4>Authentication</h4>
+          <div style={{ display: 'flex', marginBottom: 2 }}>
+            <h4>Authentication</h4>
           </div>
         </div>}
         <div className="gf-form">
-        {Constants.EnableBearerToken && <div style={{ display: 'flex', marginBottom:2 }}>
-          <InlineLabel aria-disabled={true} width={20}>Bearer token</InlineLabel>
-          <InlineSwitch
-            defaultChecked={jsonData.isBearerEnabled}
-            checked={jsonData.isBearerEnabled}
-            showLabel={true}
-            onChange={this.onBearerChange}
-          />
-        </div>}
+          {Constants.EnableBearerToken && <div style={{ display: 'flex', marginBottom: 2 }}>
+            <InlineLabel aria-disabled={true} width={20}>Bearer token</InlineLabel>
+            <InlineSwitch
+              defaultChecked={jsonData.isBearerEnabled}
+              checked={jsonData.isBearerEnabled}
+              showLabel={true}
+              onChange={this.onBearerChange}
+            />
+          </div>}
         </div>
         <div className="gf-form">
-        {Constants.EnableBearerToken && <div style={{ display: 'flex', marginBottom:40 }}>
-          <InlineLabel width={20}>LMv1 token</InlineLabel>
-          <InlineSwitch
-            defaultChecked={jsonData.isLMV1Enabled}
-            checked={jsonData.isLMV1Enabled}
-            showLabel={true}
-            onChange={this.onLMV1Change}
-          />
-        </div>}
+          {Constants.EnableBearerToken && <div style={{ display: 'flex', marginBottom: 40 }}>
+            <InlineLabel width={20}>LMv1 token</InlineLabel>
+            <InlineSwitch
+              defaultChecked={jsonData.isLMV1Enabled}
+              checked={jsonData.isLMV1Enabled}
+              showLabel={true}
+              onChange={this.onLMV1Change}
+            />
+          </div>}
         </div>
         {(Constants.EnableBearerToken && jsonData.isBearerEnabled) && <div className="box">
-          <div style={{ display: 'flex', marginBottom:2 }}>
-              <h4>Bearer Token</h4>
+          <div style={{ display: 'flex', marginBottom: 2 }}>
+            <h4>Bearer Token</h4>
           </div>
-        </div> }
-        {(Constants.EnableBearerToken && jsonData.isBearerEnabled)  && <div className="gf-form-inline" style={{ display: 'flex', marginBottom:40 }}>
+        </div>}
+        {(Constants.EnableBearerToken && jsonData.isBearerEnabled) && <div className="gf-form-inline" style={{ display: 'flex', marginBottom: 40 }}>
           <div className="gf-form">
             <SecretFormField
               isConfigured={(secureJsonFields && secureJsonFields.bearer_token) as boolean}
@@ -176,13 +176,13 @@ export class ConfigEditor extends PureComponent<Props, State> {
               onChange={this.onBearerKeyChange}
             />
           </div>
-        </div> }
-        {(jsonData.isLMV1Enabled) &&<div className="box">
-          <div style={{ display: 'flex', marginBottom:2 }}>
-              <h4>LMv1 Token</h4>
+        </div>}
+        {(jsonData.isLMV1Enabled) && <div className="box">
+          <div style={{ display: 'flex', marginBottom: 2 }}>
+            <h4>LMv1 Token</h4>
           </div>
         </div>}
-       {(jsonData.isLMV1Enabled) && <div className="gf-form-inline">
+        {(jsonData.isLMV1Enabled) && <div className="gf-form-inline">
           <div className="gf-form">
             <FormField
               value={jsonData.accessId || ''}
@@ -208,16 +208,16 @@ export class ConfigEditor extends PureComponent<Props, State> {
             />
           </div>
         </div>}
-        <div style={{ display: 'flex', marginTop:40 }}>
-           <InlineLabel width={20}>Skip TLS Varify</InlineLabel>
-               <InlineSwitch
-                    defaultChecked={jsonData.skipTLSVarify}
-                    checked={jsonData.skipTLSVarify}
-                    showLabel={true}
-                    onChange={this.onSkipTLSVarify}
-                  />
-                </div>
+        <div style={{ display: 'flex', marginTop: 40 }}>
+          <InlineLabel width={20}>Skip TLS Varify</InlineLabel>
+          <InlineSwitch
+            defaultChecked={jsonData.skipTLSVarify}
+            checked={jsonData.skipTLSVarify}
+            showLabel={true}
+            onChange={this.onSkipTLSVarify}
+          />
         </div>
+      </div>
     );
   }
 }

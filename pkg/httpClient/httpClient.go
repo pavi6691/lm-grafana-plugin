@@ -78,7 +78,7 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 			return nil, errors.New(constants.ErrorReadingResponseBody)
 		}
 	}
-	err = handleException(newResp, err)
+	err = handleException(newResp,respByte, err)
 	if err != nil {
 		return nil, err
 	}
