@@ -209,7 +209,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
           </div>
         </div>}
         <div style={{ display: 'flex', marginTop: 40 }}>
-          <InlineLabel width={20}>Skip TLS Varify</InlineLabel>
+          <InlineLabel width={20}>Skip TLS Verify</InlineLabel>
           <InlineSwitch
             defaultChecked={jsonData.skipTLSVarify}
             checked={jsonData.skipTLSVarify}
