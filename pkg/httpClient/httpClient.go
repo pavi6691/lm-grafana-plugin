@@ -76,7 +76,7 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 		}
 		defer newResp.Body.Close()
 	}
-	err = handleException(newResp, err)
+	err = handleException(newResp,respByte, err)
 	if err != nil {
 		return nil, err
 	}
