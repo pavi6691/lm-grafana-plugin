@@ -49,7 +49,7 @@ const (
 	RateLimitErrMsg                   = "Rate limit exceeded"
 	AuthSuccessMsg                    = "Authentication Success"
 	InternalServerErrorJsonErrMessage = `{ "error":"%s"}`
-	HttpNotOk                         = "HTTPS SATUS = %d, Message = %s"
+	HttpNotOk                         = "HTTPS STATUS = %d, Message = %s"
 )
 
 // These constants are from PathEndpoints.ts.
