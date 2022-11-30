@@ -8,6 +8,8 @@ export class Constants {
     static readonly DataSourceReq = '/DataSourceReq'
     static readonly DataPointReq = '/DataPointReq'
 
+    static readonly IsBearerTokenEnabled = true
+
     static readonly IsAutocompleteEnabled = true
 
     static readonly EnableRegexFeature = false

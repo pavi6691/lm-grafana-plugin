@@ -1,7 +1,8 @@
 import React, { SyntheticEvent,ChangeEvent, PureComponent } from 'react';
-import { LegacyForms } from '@grafana/ui';
+import { InlineLabel, InlineSwitch, LegacyForms } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { MyDataSourceOptions, MySecureJsonData } from './types';
+import { Constants } from 'Constants';
 
 const { SecretFormField, FormField } = LegacyForms;
 
@@ -24,14 +25,13 @@ export class ConfigEditor extends PureComponent<Props, State> {
   };
 
   // Secure field (only sent to the backend)
-  onAPIKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
+  onBearerKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onOptionsChange, options } = this.props;
-    onOptionsChange({
-      ...options,
-      secureJsonData: {
+    const secureJsonData = {
+      ...options.secureJsonData,
         bearer_token: event.target.value,
-      },
-    });
+      };
+    onOptionsChange({ ...options, secureJsonData });
   };
 
 //AccessId 
@@ -54,7 +54,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
     onOptionsChange({ ...options, secureJsonData });
   }
 
-  onResetAPIKey = () => {
+  onResetBearerKey = () => {
     const { onOptionsChange, options } = this.props;
     onOptionsChange({
       ...options,
@@ -106,7 +106,9 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const { options } = this.props;
     const { jsonData, secureJsonFields } = options;
     const secureJsonData = (options.secureJsonData || {}) as MySecureJsonData;
-    jsonData.isLMV1Enabled = true
+    if (!Constants.IsBearerTokenEnabled) {
+      jsonData.isLMV1Enabled = true
+    }
     return (
       <div className="gf-form-group">
         <div className="gf-form" style={{ display: 'flex', marginBottom:50 }}>
@@ -119,15 +121,14 @@ export class ConfigEditor extends PureComponent<Props, State> {
             placeholder="Comapny Name"
           />
         </div>
-        {/*
-        <div className="box">
+        
+        {Constants.IsBearerTokenEnabled && <div className="box">
           <div style={{ display: 'flex', marginBottom:2 }}>
               <h4>Authentication</h4>
           </div>
-        </div>
-        */}
+        </div>}
         <div className="gf-form">
-        {/* <div style={{ display: 'flex', marginBottom:2 }}>
+        {Constants.IsBearerTokenEnabled && <div style={{ display: 'flex', marginBottom:2 }}>
           <InlineLabel aria-disabled={true} width={20}>Bearer token</InlineLabel>
           <InlineSwitch
             defaultChecked={jsonData.isBearerEnabled}
@@ -135,26 +136,25 @@ export class ConfigEditor extends PureComponent<Props, State> {
             showLabel={true}
             onChange={this.onBearerChange}
           />
-        </div> */}
+        </div>}
         </div>
         <div className="gf-form">
-        {/* <div style={{ display: 'flex', marginBottom:40 }}>
+        {Constants.IsBearerTokenEnabled && <div style={{ display: 'flex', marginBottom:40 }}>
           <InlineLabel width={20}>LMv1 token</InlineLabel>
           <InlineSwitch
-            disabled={true}
             defaultChecked={jsonData.isLMV1Enabled}
             checked={jsonData.isLMV1Enabled}
             showLabel={true}
             onChange={this.onLMV1Change}
           />
-      </div>*/}
+        </div>}
         </div>
-        {jsonData.isBearerEnabled === true && <div className="box">
+        {(Constants.IsBearerTokenEnabled && jsonData.isBearerEnabled) && <div className="box">
           <div style={{ display: 'flex', marginBottom:2 }}>
               <h4>Bearer Token</h4>
           </div>
         </div> }
-        {jsonData.isBearerEnabled === true && <div className="gf-form-inline" style={{ display: 'flex', marginBottom:40 }}>
+        {(Constants.IsBearerTokenEnabled && jsonData.isBearerEnabled)  && <div className="gf-form-inline" style={{ display: 'flex', marginBottom:40 }}>
           <div className="gf-form">
             <SecretFormField
               isConfigured={(secureJsonFields && secureJsonFields.bearer_token) as boolean}
@@ -163,17 +163,17 @@ export class ConfigEditor extends PureComponent<Props, State> {
               placeholder="LM breaer token"
               labelWidth={10}
               inputWidth={20}
-              onReset={this.onResetAPIKey}
-              onChange={this.onAPIKeyChange}
+              onReset={this.onResetBearerKey}
+              onChange={this.onBearerKeyChange}
             />
           </div>
         </div> }
-        <div className="box">
+        {(jsonData.isLMV1Enabled) &&<div className="box">
           <div style={{ display: 'flex', marginBottom:2 }}>
               <h4>LMv1 Token</h4>
           </div>
-        </div>
-        <div className="gf-form-inline"> 
+        </div>}
+       {(jsonData.isLMV1Enabled) && <div className="gf-form-inline"> 
           <div className="gf-form">
             <FormField
               value={jsonData.accessId || ''}
@@ -184,8 +184,8 @@ export class ConfigEditor extends PureComponent<Props, State> {
               onChange={this.onAccessIdChange}
             />
           </div>
-        </div>
-        <div className="gf-form-inline"> 
+        </div>}
+        {(jsonData.isLMV1Enabled) && <div className="gf-form-inline"> 
           <div className="gf-form">
             <SecretFormField
               isConfigured={(secureJsonFields && secureJsonFields.accessKey) as boolean} 
@@ -198,7 +198,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
               onChange={this.onAccessKeyChange}  
             />
           </div>
-        </div>
+        </div>}
         </div>
     );
   }

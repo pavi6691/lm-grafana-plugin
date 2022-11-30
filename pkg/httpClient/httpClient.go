@@ -32,9 +32,9 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	resourcePath := strings.ReplaceAll(httpRequest.URL.Path, constants.SantabaRestPath, "")
 
 	// todo
-	logger.Info("The resource path is ", resourcePath)
-	logger.Info("The httpRequest.URL.Path is ", httpRequest.URL.Path)
-	logger.Info("The full path is ", requestURL)
+	logger.Debug("The resource path is ", resourcePath)
+	logger.Debug("The httpRequest.URL.Path is ", httpRequest.URL.Path)
+	logger.Debug("The full path is ", requestURL)
 
 	if pluginSettings.IsLMV1Enabled {
 		httpRequest.Header.Add(constants.Authorization, getLMv1(pluginSettings.AccessID, authSettings.AccessKey, resourcePath)) //nolint:lll
@@ -57,7 +57,7 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 		return nil, err
 	}
 
-	logger.Info("Hitting HTTP request with headers => ", string(reqDump), err)
+	logger.Debug("Hitting HTTP request with headers => ", string(reqDump), err)
 
 	newResp, err := client.Do(httpRequest)
 	var respByte []byte
@@ -91,7 +91,7 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 }
 
 func buildBearerToken(authSettings *models.AuthSettings) string {
-	return constants.BearerToken + authSettings.BearerToken
+	return constants.BearerTokenPrefix + authSettings.BearerToken
 }
 
 func buildGrafanaUserAgent(pluginSettings *models.PluginSettings) string {
