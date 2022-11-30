@@ -413,7 +413,7 @@ export class QueryEditor extends PureComponent<Props> {
           {Constants.EnableHostVariableFeature && <div style={{ width: '100%', display: 'flex', marginBottom:5, alignItems: 'flex-start', columnGap:5 }}>
           <InlineLabel 
             width={'auto'} 
-            tooltip={'Currently single variable on dashboard is allowed. which is considered to be host. use custom type to add hostname and id as key value pair. By desabling this flag so that data is fetched for host in the query but not host selected on dashboard variable. This helps in cases 1) If selected host from variable is not matching with datasource selected in this query. 2) Instance names not matching with regex/selection made. Note: If dashboard is intended for perticular host then do not disable this flag. And This flag has no effect if there are no variable added on dashboard'}>Allow Host Variable</InlineLabel>
+            tooltip={Constants.ToolTipForHostVariableSwith}>Allow Host Variable</InlineLabel>
           <InlineSwitch
             width={'auto'}
             default={this.props.query.enableHostVariable}
@@ -468,6 +468,13 @@ export class QueryEditor extends PureComponent<Props> {
             isLoading={isDeviceLoading}
             noOptionsMessage='No resources found'
             loadingMessage='Fetching resources...'
+            allowCustomValue={true}
+            onCreateOption={(v) => {
+              if(v !== null && this.props.query.hostSelected !== v) {
+                var value = {label:v,value:0}
+                setHostSelected(value)
+              }
+            }}
             value={hostSelected}
             onInputChange={(v) => {
               if(isAutocompleteEnabled && v.length >  0) {
