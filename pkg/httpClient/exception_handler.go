@@ -25,7 +25,7 @@ func handleException(response *http.Response, respByte []byte, err error) error 
 		return err
 	}
 
-	if response.StatusCode == http.StatusServiceUnavailable { // todo check exact error code when service is down
+	if response.StatusCode == http.StatusServiceUnavailable {
 		return errors.New(constants.ServiceUnavailable)
 	}
 
