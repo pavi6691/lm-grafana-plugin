@@ -75,8 +75,8 @@ const (
 
 	// GroupExtraFilters Groups, gets either service / devices.
 	GroupExtraFilters = `{"AND":[{"OR":[{"name":"groupType","value":"%s","op":":"},{"name":"id","value":1,"op":":"}]},
-								{"name":"userPermission","value":"write","op":":"}, {"OR":[{"name":"fullPath","value":"%s","op":"~"},
-								{"name":"name","value":"%s","op":"~"}]}]}`
+							{"OR":[{"name":"userPermission","value":"write","op":":"},{"name":"userPermission","value":"read","op":":"}]}, 
+							{"OR":[{"name":"fullPath","value":"%s","op":"~"},{"name":"name","value":"%s","op":"~"}]}]}`
 	ServiceOrDeviceGroupURL = "device/groups?fields=id,fullPath,name&sort=fullPath&size=10&_=%d&extraFilters="
 
 	// HostParentFilters  = Devices.
