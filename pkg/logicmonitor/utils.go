@@ -146,7 +146,7 @@ func BuildURLReplacingQueryParams(request string, qm *models.QueryModel, from in
 		return fmt.Sprintf(constants.RawDataSingleInstanceURL, qm.HostSelected.Value, qm.HdsSelected,
 			qm.InstanceSelected[0].Value, from, to)
 	case constants.RawDataMultiInstanceReq:
-		if metaData.IsCallFromQueryEditor {
+		if metaData.EditMode {
 			return fmt.Sprintf(constants.RawDataMultiInstanceURL, qm.HostSelected.Value, qm.HdsSelected, from,
 				to)
 		} else {

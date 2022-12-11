@@ -70,7 +70,7 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 		}
 	}
 
-	metaData.IsCallFromQueryEditor = checkIfCallFromQueryEditor(&queryModel)
+	metaData.EditMode = checkIfCallFromQueryEditor(&queryModel)
 	metaData.Id, metaData.IsForLastXTime = getUniqueID(&queryModel, &query, pluginSettings, metaData)
 	metaData.QueryId = getQueryId(&queryModel, &query, pluginSettings)
 	metaData.CacheTTLInSeconds = queryModel.CollectInterval + (constants.AdditionalCacheTTLInMinutes * 60)
@@ -88,13 +88,13 @@ func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, plugin
 		return getIDForOneMinute(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
 	}
 	if UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60) > (time.Now().Unix() - constants.LastXMunitesCheckForFrameIdCalculationInSec) { // LastXTime, return true in this case
-		if metaData.IsCallFromQueryEditor {
+		if metaData.EditMode {
 			return getQueryId(queryModel, query, pluginSettings), true
 		} else {
 			return getQueryId(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
 		}
 	} else { // FixedTimeRange, returns false for the same
-		if metaData.IsCallFromQueryEditor {
+		if metaData.EditMode {
 			return getQueryId(queryModel, query, pluginSettings), false
 		} else {
 			return getQueryId(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), false

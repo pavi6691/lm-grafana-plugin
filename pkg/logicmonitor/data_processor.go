@@ -32,12 +32,11 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 
 	response := backend.DataResponse{}
 	finalData := make(map[int]*models.MultiInstanceRawData)
-	dataMapLen := 0
 
 	//TODO remove start
 	logger.Info("")
 	logger.Info("ID", metaData.Id)
-	logger.Info("IsCallFromQueryEditor", metaData.IsCallFromQueryEditor)
+	logger.Info("IsCallFromQueryEditor", metaData.EditMode)
 	logger.Info("First Entry TimeStamp", time.UnixMilli(cache.GetFirstRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature)*1000))
 	logger.Info("Last Entry TimeStamp", time.UnixMilli(cache.GetLastestRawDataEntryTimestamp(metaData, queryModel.EnableDataAppendFeature)*1000))
 	//TODO remove end
@@ -52,20 +51,14 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 	/*
 		Get earlier data than what is already in the cache
 	*/
-	dataFromApi := getDataFromApi(prependTimeRangeForApiCall, make(map[int]*models.MultiInstanceRawData), queryModel, metaData, authSettings, pluginSettings, logger)
-	if len(dataFromApi) > 0 {
-		logger.Info("Prepend Nr Of Entries ", getNrOfEntries(dataFromApi))
-		for i := 0; i < len(dataFromApi); i++ {
-			finalData[dataMapLen] = dataFromApi[i]
-			dataMapLen++
-		}
-	}
-
+	finalData = getDataFromApi(prependTimeRangeForApiCall, finalData, queryModel, metaData, authSettings, pluginSettings, logger)
+	logger.Info("Prepend Nr Of Entries", getNrOfEntries(finalData))
 	/*
-		Get data than what is already in the cache
+		Get data from cache
 	*/
 	var cachedData *models.MultiInstanceRawData
 	if data, ok := cache.GetData(metaData); ok {
+		dataMapLen := len(finalData)
 		if cachedData, ok = data.(*models.MultiInstanceRawData); ok {
 			finalData[dataMapLen] = cachedData
 			dataMapLen++
@@ -76,20 +69,17 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 	/*
 		Get latest data. expected more data than in cache
 	*/
-	dataFromApi = getDataFromApi(appendTimeRangeForApiCall, make(map[int]*models.MultiInstanceRawData), queryModel, metaData, authSettings, pluginSettings, logger)
-	if len(dataFromApi) > 0 {
-		logger.Info("Append Number of entries", getNrOfEntries(dataFromApi))
-		for i := 0; i < len(dataFromApi); i++ {
-			finalData[dataMapLen] = dataFromApi[i]
-			dataMapLen++
-		}
+	tempLen := len(finalData)
+	finalData = getDataFromApi(appendTimeRangeForApiCall, finalData, queryModel, metaData, authSettings, pluginSettings, logger)
+	logger.Info("Append Number of entries", getNrOfEntries(finalData))
+	logger.Info("Total Number of entries", getNrOfEntries(finalData)-tempLen)
+
+	if len(finalData) == 0 {
+		response.Error = errors.New(constants.NoDataFromLM)
+	} else {
+		response = processFinalData(queryModel, metaData, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(), finalData, response, logger)
+		logger.Info("size of data in bytes", cache.GetRealSize(metaData))
 	}
-	logger.Info("Total Number of entries", getNrOfEntries(finalData))
-
-	response = processFinalData(queryModel, metaData, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(), finalData, response, logger)
-
-	logger.Info("size of data in bytes", cache.GetRealSize(metaData))
-
 	//TODO remove start
 	logger.Info("")
 	//TODO remove end
@@ -101,7 +91,8 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 1. Initiate goroutines to call API for each time range caclulated
 */
 func getDataFromApi(timeRangeForApiCall []models.PendingTimeRange, rawDataMap map[int]*models.MultiInstanceRawData, queryModel models.QueryModel,
-	metaData models.MetaData, authSettings *models.AuthSettings, pluginSettings *models.PluginSettings, logger log.Logger) map[int]*models.MultiInstanceRawData {
+	metaData models.MetaData, authSettings *models.AuthSettings, pluginSettings *models.PluginSettings,
+	logger log.Logger) map[int]*models.MultiInstanceRawData {
 	if len(timeRangeForApiCall) > 0 {
 		wg := &sync.WaitGroup{}
 		dataLenIdx := len(rawDataMap)
@@ -135,7 +126,8 @@ func getTimeRange(query backend.DataQuery, queryModel models.QueryModel, metaDat
 	needToPrependData := firstRawDataEntryTimestamp < math.MaxInt64 && firstRawDataEntryTimestamp-query.TimeRange.From.Unix() > queryModel.CollectInterval &&
 		queryModel.EnableHistoricalData
 	if needToPrependData {
-		prependTimeRangeForApiCall = GetTimeRanges(UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60), firstRawDataEntryTimestamp-1, queryModel.CollectInterval, metaData, logger)
+		prependTimeRangeForApiCall = GetTimeRanges(UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60),
+			firstRawDataEntryTimestamp-1, queryModel.CollectInterval, metaData, logger)
 	}
 	waitSec := GetWaitTimeInSec(metaData, queryModel.CollectInterval, queryModel.EnableDataAppendFeature)
 	needToAppendData := waitSec == 0
@@ -154,9 +146,10 @@ func getTimeRange(query backend.DataQuery, queryModel models.QueryModel, metaDat
 		}
 		if queryModel.EnableHistoricalData {
 			appendTimeRangeForApiCall = GetTimeRanges(lastRawDataEntryTimestamp, query.TimeRange.To.Unix(), queryModel.CollectInterval, metaData, logger)
-
 		} else {
-			appendTimeRangeForApiCall = append(appendTimeRangeForApiCall, models.PendingTimeRange{From: lastRawDataEntryTimestamp, To: query.TimeRange.To.Unix()})
+			appendTimeRangeForApiCall = append(appendTimeRangeForApiCall, models.PendingTimeRange{
+				From: lastRawDataEntryTimestamp,
+				To:   query.TimeRange.To.Unix()})
 		}
 		if len(prependTimeRangeForApiCall) == 0 && len(appendTimeRangeForApiCall) == 0 {
 			if metaData.IsForLastXTime {
@@ -167,8 +160,10 @@ func getTimeRange(query backend.DataQuery, queryModel models.QueryModel, metaDat
 			totalApis := apisCallsSofar + len(prependTimeRangeForApiCall) + len(appendTimeRangeForApiCall)
 			allowedNrOfCalls := constants.NumberOfRecordsWithRateLimit - apisCallsSofar
 			if totalApis > constants.NumberOfRecordsWithRateLimit {
-				logger.Error(fmt.Sprintf(constants.RateLimitAuditMsg, apisCallsSofar, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis, allowedNrOfCalls))
-				response.Error = fmt.Errorf(constants.RateLimitAuditMsg, apisCallsSofar, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis, allowedNrOfCalls)
+				logger.Error(fmt.Sprintf(constants.RateLimitAuditMsg, apisCallsSofar,
+					len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis, allowedNrOfCalls))
+				response.Error = fmt.Errorf(constants.RateLimitAuditMsg, apisCallsSofar,
+					len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis, allowedNrOfCalls)
 			} else {
 				cache.AddApiCalls(pluginContext.DataSourceInstanceSettings.UID, totalApis)
 			}
@@ -180,114 +175,88 @@ func getTimeRange(query backend.DataQuery, queryModel models.QueryModel, metaDat
 	return response, prependTimeRangeForApiCall, appendTimeRangeForApiCall
 }
 
+// TODO currently only instanceData is filtered and stored in cache. to optimize cache usage, we can apply datapoint filter as well in case query is not edited
+// TODO delete old data as per ttl
 func processFinalData(queryModel models.QueryModel, metaData models.MetaData, from int64, to int64, rawDataMap map[int]*models.MultiInstanceRawData,
 	response backend.DataResponse, logger log.Logger) backend.DataResponse {
 	var dataFrameMap = make(map[string]*data.Frame)
-	var mergedAndFilteredResult *models.MultiInstanceRawData
-	var mergedResult *models.MultiInstanceRawData
-	filteredInstanceData := make(map[string]models.ValuesAndTime)
-	allData := make(map[string]models.ValuesAndTime)
-
-	for k := 0; k < len(rawDataMap); k++ {
+	finalDataMerged := make(map[string]models.ValuesAndTime)
+	// Below loop gets the recent data first. So as to reduce the cost of sorting
+	for k := len(rawDataMap) - 1; k >= 0; k-- {
 		if rawDataMap[k].Error != "OK" {
 			response.Error = errors.New(rawDataMap[k].Error)
-			mergedAndFilteredResult = &models.MultiInstanceRawData{Data: models.MultiInstanceData{DataSourceName: rawDataMap[0].Data.DataSourceName, DataPoints: rawDataMap[0].Data.DataPoints, Instances: filteredInstanceData}, Error: rawDataMap[k].Error}
 			return response
 		}
 		for instanceName, valueAndTime := range rawDataMap[k].Data.Instances {
-			var Time []int64
-			Values := make([][]interface{}, len(queryModel.DataPointSelected))
-			var frame *data.Frame
-			dataPontMap := make(map[string]int)
 			// Check if instance selected/regex matching
 			shortenInstance, matched := IsInstanceMatched(metaData, &queryModel, rawDataMap[k].Data.DataSourceName, instanceName)
 			if matched {
 				metaData.MatchedInstances = true
+				var frame *data.Frame
+				dataPontMap := make(map[string]int)
 				frame = getFrame(dataFrameMap, shortenInstance, queryModel.DataPointSelected)
-				// this dataPontMap is to keep indexs of datapoints as value,
-				// so as to get relevant value from Values array for selected data points
+				// this dataPontMap is to keep indexs of datapoints so as to get value from Values array for selected datapoints
 				for i, v := range rawDataMap[k].Data.DataPoints {
 					dataPontMap[v] = i
 				}
-			}
-			// filter only for time range from query And store in frame
-			for i := 0; i < len(valueAndTime.Time); i++ {
-				t := time.UnixMilli(valueAndTime.Time[i]).Unix()
-				if from <= t && to >= t { // filter condition
-					//
-					if matched {
+				// filter only for time range from query And store in frame
+				for i := 0; i < len(valueAndTime.Time); i++ {
+					t := time.UnixMilli(valueAndTime.Time[i]).Unix()
+					// Below check is to filter on time range
+					if from <= t && to >= t {
 						vals := make([]interface{}, len(frame.Fields))
 						var idx = 1
 						vals[0] = time.UnixMilli(valueAndTime.Time[i])
-						Time = append(Time, valueAndTime.Time[i])
-						for dpIndx, dp := range queryModel.DataPointSelected {
+						for _, dp := range queryModel.DataPointSelected {
 							fieldIdx := dataPontMap[dp.Label]
 							if valueAndTime.Values[i][fieldIdx] == constants.NoData {
 								vals[idx] = math.NaN()
 							} else {
 								vals[idx] = valueAndTime.Values[i][fieldIdx]
 							}
-							Values[dpIndx] = append(Values[dpIndx], valueAndTime.Values[i][fieldIdx])
 							idx++
 						}
 						frame.AppendRow(vals...)
+					} else if len(finalDataMerged) > 0 {
+						// Time range is surpassed. just end the loop
+						break
 					}
-					//
-				} else if len(filteredInstanceData) > 0 {
-					break
 				}
-			}
-
-			if matched {
-				//addFrameValues(shortenInstance, queryModel.DataPointSelected, dataPontMap, Values, Time, dataFrameMap, &queryModel, metaData, logger)
 				dataFrameMap[shortenInstance] = frame
 			}
-
-			if matched || metaData.IsCallFromQueryEditor {
-				// Set filtered data. donot store instance that is not selected/matching with regext, unless its for queryEditor
-				if _, ok := filteredInstanceData[instanceName]; ok {
-					filteredInstanceData[instanceName] = models.ValuesAndTime{Time: append(Time, filteredInstanceData[instanceName].Time...), Values: append(Values, filteredInstanceData[instanceName].Values...)}
-				} else if len(Time) > 0 && len(Values) > 0 {
-					filteredInstanceData[instanceName] = models.ValuesAndTime{Time: Time, Values: Values}
-				}
-
-				// Set all Data
-				if _, ok := allData[instanceName]; ok {
-					allData[instanceName] = models.ValuesAndTime{Time: append(valueAndTime.Time, allData[instanceName].Time...), Values: append(valueAndTime.Values, allData[instanceName].Values...)}
+			// Set Data if from QueryEditor. Donot store instance that is not selected/matching with regext, unless its for queryEditor
+			if metaData.EditMode || matched {
+				if _, ok := finalDataMerged[instanceName]; ok {
+					finalDataMerged[instanceName] = models.ValuesAndTime{
+						Time:   append(finalDataMerged[instanceName].Time, valueAndTime.Time...),
+						Values: append(finalDataMerged[instanceName].Values, valueAndTime.Values...)}
 				} else if len(valueAndTime.Time) > 0 && len(valueAndTime.Values) > 0 {
-					allData[instanceName] = models.ValuesAndTime{Time: valueAndTime.Time, Values: valueAndTime.Values}
+					finalDataMerged[instanceName] = models.ValuesAndTime{
+						Time:   valueAndTime.Time,
+						Values: valueAndTime.Values}
 				}
-
-				// Set all First and Last time of all records
-				SetFirstTimeStamp(queryModel, metaData, valueAndTime, logger)
-				SetLastTimeStamp(queryModel, metaData, valueAndTime, logger)
 			}
+			// Set First and Last time of all records
+			SetFirstTimeStamp(queryModel, metaData, valueAndTime, logger)
+			SetLastTimeStamp(queryModel, metaData, valueAndTime, logger)
 		}
 	}
-
-	if len(filteredInstanceData) > 0 && len(rawDataMap) > 0 {
-		mergedAndFilteredResult = &models.MultiInstanceRawData{Data: models.MultiInstanceData{DataSourceName: rawDataMap[len(rawDataMap)-1].Data.DataSourceName, DataPoints: rawDataMap[len(rawDataMap)-1].Data.DataPoints, Instances: filteredInstanceData}, Error: "OK"}
-	}
-
-	if len(allData) > 0 && len(rawDataMap) > 0 {
-		mergedResult = &models.MultiInstanceRawData{Data: models.MultiInstanceData{DataSourceName: rawDataMap[len(rawDataMap)-1].Data.DataSourceName, DataPoints: rawDataMap[len(rawDataMap)-1].Data.DataPoints, Instances: allData}, Error: "OK"}
-	}
-
-	if mergedAndFilteredResult == nil {
-		response.Error = errors.New(constants.NoDataFromLM)
+	// Check for errors, add franmes to response and store data in cache
+	if !metaData.MatchedInstances && len(dataFrameMap) == 0 && response.Error == nil {
+		response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
 	} else {
-		logger.Info("Filtered Number of entries", getNrForSingleEntry(filteredInstanceData))
-		if len(rawDataMap) > 0 && !metaData.MatchedInstances && len(dataFrameMap) == 0 && response.Error == nil {
-			response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
-		} else if len(dataFrameMap) > 0 {
+		if len(dataFrameMap) > 0 {
 			response.Frames = nil
 			for _, frame := range dataFrameMap {
 				response.Frames = append(response.Frames, frame)
 			}
-			// Add data to cache
-			cache.StoreData(metaData, mergedResult)
-			logger.Info("Cache size (same as number of panels)", cache.GetCount())
 		}
+		cache.StoreData(metaData, &models.MultiInstanceRawData{Data: models.MultiInstanceData{
+			DataSourceName: rawDataMap[len(rawDataMap)-1].Data.DataSourceName,
+			DataPoints:     rawDataMap[len(rawDataMap)-1].Data.DataPoints,
+			Instances:      finalDataMerged},
+			Error: "OK"})
+		logger.Info("Cache size (same as number of panels unless deleted as per ttl)", cache.GetCount())
 	}
 	return response
 }

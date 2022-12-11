@@ -25,7 +25,7 @@ func GetLastestRawDataEntryTimestamp(metaData models.MetaData, enableDataAppendF
 		if v, ok := lastRawDataEntryTimestamp.Get(metaData.Id); ok {
 			return v.(int64)
 		} else if v, ok := lastRawDataEntryTimestamp.Get(metaData.QueryId); ok {
-			if !metaData.IsCallFromQueryEditor {
+			if !metaData.EditMode {
 				lastRawDataEntryTimestamp.Set(metaData.Id, v.(int64))
 				lastRawDataEntryTimestamp.Remove(metaData.QueryId)
 			}
@@ -40,7 +40,7 @@ func GetFirstRawDataEntryTimestamp(metaData models.MetaData, enableDataAppendFea
 		if v, ok := firstRawDataEntryTimestamp.Get(metaData.Id); ok {
 			return v.(int64)
 		} else if v, ok := firstRawDataEntryTimestamp.Get(metaData.QueryId); ok {
-			if !metaData.IsCallFromQueryEditor {
+			if !metaData.EditMode {
 				firstRawDataEntryTimestamp.Remove(metaData.QueryId)
 				firstRawDataEntryTimestamp.Set(metaData.Id, v.(int64))
 			}

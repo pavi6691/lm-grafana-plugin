@@ -175,7 +175,7 @@ export class QueryEditor extends PureComponent<Props> {
     const [instanceSelectBy,setInstanceSelectBy] = useState<any>();
     const [instanceRegex,setInstanceRegex] = useState<any>();
 
-    const [isAutocompleteEnabled] = useState(Constants.IsAutocompleteEnabled); // currently only used for group and hosts. as it requires devices datasource id, for datasources using standerd api
+    const [isAutocompleteEnabled] = useState(Constants.EnableAutocomplete); 
 
     const optionStartsWithValue = (option: SelectableValue<string>, value: string) =>
             option.label?.toString().startsWith(value) || false;

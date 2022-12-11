@@ -106,7 +106,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const { options } = this.props;
     const { jsonData, secureJsonFields } = options;
     const secureJsonData = (options.secureJsonData || {}) as MySecureJsonData;
-    if (!Constants.IsBearerTokenEnabled) {
+    if (!Constants.EnableBearerToken) {
       jsonData.isLMV1Enabled = true
     }
     return (
@@ -122,13 +122,13 @@ export class ConfigEditor extends PureComponent<Props, State> {
           />
         </div>
         
-        {Constants.IsBearerTokenEnabled && <div className="box">
+        {Constants.EnableBearerToken && <div className="box">
           <div style={{ display: 'flex', marginBottom:2 }}>
               <h4>Authentication</h4>
           </div>
         </div>}
         <div className="gf-form">
-        {Constants.IsBearerTokenEnabled && <div style={{ display: 'flex', marginBottom:2 }}>
+        {Constants.EnableBearerToken && <div style={{ display: 'flex', marginBottom:2 }}>
           <InlineLabel aria-disabled={true} width={20}>Bearer token</InlineLabel>
           <InlineSwitch
             defaultChecked={jsonData.isBearerEnabled}
@@ -139,7 +139,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
         </div>}
         </div>
         <div className="gf-form">
-        {Constants.IsBearerTokenEnabled && <div style={{ display: 'flex', marginBottom:40 }}>
+        {Constants.EnableBearerToken && <div style={{ display: 'flex', marginBottom:40 }}>
           <InlineLabel width={20}>LMv1 token</InlineLabel>
           <InlineSwitch
             defaultChecked={jsonData.isLMV1Enabled}
@@ -149,12 +149,12 @@ export class ConfigEditor extends PureComponent<Props, State> {
           />
         </div>}
         </div>
-        {(Constants.IsBearerTokenEnabled && jsonData.isBearerEnabled) && <div className="box">
+        {(Constants.EnableBearerToken && jsonData.isBearerEnabled) && <div className="box">
           <div style={{ display: 'flex', marginBottom:2 }}>
               <h4>Bearer Token</h4>
           </div>
         </div> }
-        {(Constants.IsBearerTokenEnabled && jsonData.isBearerEnabled)  && <div className="gf-form-inline" style={{ display: 'flex', marginBottom:40 }}>
+        {(Constants.EnableBearerToken && jsonData.isBearerEnabled)  && <div className="gf-form-inline" style={{ display: 'flex', marginBottom:40 }}>
           <div className="gf-form">
             <SecretFormField
               isConfigured={(secureJsonFields && secureJsonFields.bearer_token) as boolean}

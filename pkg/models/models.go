@@ -109,14 +109,14 @@ type PendingTimeRange struct {
 }
 
 type MetaData struct {
-	Id                    string
-	QueryId               string
-	CacheTTLInSeconds     int64
-	IsForLastXTime        bool
-	IsCallFromQueryEditor bool
-	TimeRangeForApiCall   []PendingTimeRange
-	MatchedInstances      bool
-	InstanceSelectedMap   map[string]int
+	Id                  string
+	QueryId             string
+	CacheTTLInSeconds   int64
+	IsForLastXTime      bool
+	EditMode            bool
+	TimeRangeForApiCall []PendingTimeRange
+	MatchedInstances    bool
+	InstanceSelectedMap map[string]int
 }
 
 type ApiCallsTracker struct {

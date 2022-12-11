@@ -15,10 +15,8 @@ export class Constants {
     dashboard'
 
 
-    static readonly IsBearerTokenEnabled = true
-
-    static readonly IsAutocompleteEnabled = true
-
+    static readonly EnableBearerToken = true
+    static readonly EnableAutocomplete = true
     static readonly EnableRegexFeature = false
     static readonly EnableHistoricalData = false
     static readonly EnableDataAppendFeature = true
