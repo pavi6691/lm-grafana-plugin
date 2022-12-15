@@ -73,7 +73,7 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	metaData.EditMode = checkIfCallFromQueryEditor(&queryModel)
 	metaData.Id, metaData.IsForLastXTime = getUniqueID(&queryModel, &query, pluginSettings, metaData)
 	metaData.QueryId = getQueryId(&queryModel, &query, pluginSettings)
-	if queryModel.EnableDataAppendFeature {
+	if queryModel.EnableStrategicApiCallFeature {
 		metaData.CacheTTLInSeconds = query.TimeRange.To.Unix() - query.TimeRange.From.Unix()
 		logger.Info("metaData.CacheTTLInSeconds = ", metaData.CacheTTLInSeconds)
 	} else {
@@ -88,7 +88,7 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 }
 
 func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings, metaData models.MetaData) (string, bool) { //nolint:lll
-	if !queryModel.EnableDataAppendFeature {
+	if !queryModel.EnableStrategicApiCallFeature {
 		//backword compatible
 		return getIDForOneMinute(queryModel, query, pluginSettings) + strconv.FormatInt(queryModel.LastQueryEditedTimeStamp, 10), true
 	}

@@ -28,7 +28,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
 
   applyTemplateVariables(query: MyQuery, scopedVars: ScopedVars): Record<string, any> {
     query.enabledHostVariableFeature = Constants.EnableHostVariableFeature
-    query.enabledDataAppendFeature = Constants.EnableDataAppendFeature
+    query.enableStrategicApiCallFeature = Constants.EnableStrategicApiCallFeature
     query.enabledHistoricalData = Constants.EnableHistoricalData
     query.enabledRegexFeature = Constants.EnableRegexFeature
     if(!Constants.EnableHostVariableFeature || getTemplateSrv().getVariables().length === 0 || query.enableHostVariable !== true) {

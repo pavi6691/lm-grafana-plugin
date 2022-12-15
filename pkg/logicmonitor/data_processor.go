@@ -120,7 +120,7 @@ func calculateApiCalls(query backend.DataQuery, queryModel models.QueryModel, me
 	lastRawDataEntryTimestamp := cache.GetLastestRawDataEntryTimestamp(metaData)
 	waitSec := CheckToWait(metaData, query, queryModel)
 	if waitSec == 0 || response.Error != nil {
-		if lastRawDataEntryTimestamp > 0 && queryModel.EnableDataAppendFeature {
+		if lastRawDataEntryTimestamp > 0 && queryModel.EnableStrategicApiCallFeature {
 			lastRawDataEntryTimestamp++
 		} else {
 			lastRawDataEntryTimestamp = UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
@@ -155,7 +155,7 @@ func calculateApiCalls(query backend.DataQuery, queryModel models.QueryModel, me
 	if waitSec > 0 {
 		logger.Info(constants.WaitingSecondsForNextData, waitSec)
 	} else if len(prependTimeRangeForApiCall) == 0 && len(appendTimeRangeForApiCall) == 0 &&
-		metaData.IsForLastXTime && queryModel.EnableDataAppendFeature {
+		metaData.IsForLastXTime && queryModel.EnableStrategicApiCallFeature {
 		logger.Warn(constants.NoTimeRangeError)
 	}
 	recordApiCallsSofarLastMinute(pluginContext, appendTimeRangeForApiCall, prependTimeRangeForApiCall, response, logger)

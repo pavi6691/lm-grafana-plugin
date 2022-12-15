@@ -55,25 +55,25 @@ type HostDataSource struct {
 }
 
 type QueryModel struct {
-	TypeSelected              string             `json:"typeSelected"`
-	GroupSelected             LabelIntValue      `json:"groupSelected"`
-	HostSelected              LabelStringValue   `json:"hostSelected"`
-	HdsSelected               int64              `json:"hdsSelected"`
-	DataSourceSelected        DataSource         `json:"dataSourceSelected"`
-	InstanceSelected          []LabelStringValue `json:"instanceSelected"`
-	InstanceSearch            string             `json:"instanceSearch"`
-	DataPointSelected         []LabelIntValue    `json:"dataPointSelected"`
-	WithStreaming             bool               `json:"withStreaming"`
-	CollectInterval           int64              `json:"collectInterval"`
-	LastQueryEditedTimeStamp  int64              `json:"lastQueryEditedTimeStamp"`
-	InstanceSelectBy          string             `json:"instanceSelectBy"`
-	InstanceRegex             string             `json:"instanceRegex"`
-	ValidInstanceRegex        bool               `json:"validInstanceRegex"`
-	IsQueryInterpolated       bool               `json:"isQueryInterpolated"`
-	EnableRegexFeature        bool               `json:"enabledRegexFeature"`
-	EnableHistoricalData      bool               `json:"enabledHistoricalData"`
-	EnableDataAppendFeature   bool               `json:"enabledDataAppendFeature"`
-	EnableHostVariableFeature bool               `json:"enabledHostVariableFeature"`
+	TypeSelected                  string             `json:"typeSelected"`
+	GroupSelected                 LabelIntValue      `json:"groupSelected"`
+	HostSelected                  LabelStringValue   `json:"hostSelected"`
+	HdsSelected                   int64              `json:"hdsSelected"`
+	DataSourceSelected            DataSource         `json:"dataSourceSelected"`
+	InstanceSelected              []LabelStringValue `json:"instanceSelected"`
+	InstanceSearch                string             `json:"instanceSearch"`
+	DataPointSelected             []LabelIntValue    `json:"dataPointSelected"`
+	WithStreaming                 bool               `json:"withStreaming"`
+	CollectInterval               int64              `json:"collectInterval"`
+	LastQueryEditedTimeStamp      int64              `json:"lastQueryEditedTimeStamp"`
+	InstanceSelectBy              string             `json:"instanceSelectBy"`
+	InstanceRegex                 string             `json:"instanceRegex"`
+	ValidInstanceRegex            bool               `json:"validInstanceRegex"`
+	IsQueryInterpolated           bool               `json:"isQueryInterpolated"`
+	EnableRegexFeature            bool               `json:"enabledRegexFeature"`
+	EnableHistoricalData          bool               `json:"enabledHistoricalData"`
+	EnableStrategicApiCallFeature bool               `json:"enableStrategicApiCallFeature"`
+	EnableHostVariableFeature     bool               `json:"enabledHostVariableFeature"`
 }
 
 type Error struct {
