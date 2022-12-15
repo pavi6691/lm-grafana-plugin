@@ -85,6 +85,18 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	}
 	logger.Debug("metaData ==> ", metaData)
 	return GetData(query, queryModel, metaData, authSettings, pluginSettings, pluginContext, logger)
+	// go GetData(query, queryModel, metaData, authSettings, pluginSettings, pluginContext, logger)
+	// finalData := make(map[int]*models.MultiInstanceRawData)
+	// if data, ok := cache.GetData(metaData); ok {
+	// 	if cachedData, ok := data.(*models.MultiInstanceRawData); ok {
+	// 		finalData[0] = cachedData
+	// 	}
+	// }
+	// if len(finalData) > 0 {
+	// 	return processFinalData(queryModel, metaData, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(), finalData, response, logger)
+	// } else {
+	// 	return response
+	// }
 }
 
 func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings, metaData models.MetaData) (string, bool) { //nolint:lll
