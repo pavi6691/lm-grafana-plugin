@@ -20,32 +20,28 @@ func StoreFirstRawDataEntryTimestamp(metaData models.MetaData, timeStamp int64) 
 	firstRawDataEntryTimestamp.SetWithTTL(metaData.Id, timeStamp, time.Duration(metaData.CacheTTLInSeconds+60)*time.Second)
 }
 
-func GetLastestRawDataEntryTimestamp(metaData models.MetaData, enableDataAppendFeature bool) int64 {
-	if enableDataAppendFeature {
-		if v, ok := lastRawDataEntryTimestamp.Get(metaData.Id); ok {
-			return v.(int64)
-		} else if v, ok := lastRawDataEntryTimestamp.Get(metaData.QueryId); ok {
-			if !metaData.EditMode {
-				lastRawDataEntryTimestamp.Set(metaData.Id, v.(int64))
-				lastRawDataEntryTimestamp.Remove(metaData.QueryId)
-			}
-			return v.(int64)
+func GetLastestRawDataEntryTimestamp(metaData models.MetaData) int64 {
+	if v, ok := lastRawDataEntryTimestamp.Get(metaData.Id); ok {
+		return v.(int64)
+	} else if v, ok := lastRawDataEntryTimestamp.Get(metaData.QueryId); ok {
+		if !metaData.EditMode {
+			lastRawDataEntryTimestamp.Set(metaData.Id, v.(int64))
+			lastRawDataEntryTimestamp.Remove(metaData.QueryId)
 		}
+		return v.(int64)
 	}
 	return 0
 }
 
-func GetFirstRawDataEntryTimestamp(metaData models.MetaData, enableDataAppendFeature bool) int64 {
-	if enableDataAppendFeature {
-		if v, ok := firstRawDataEntryTimestamp.Get(metaData.Id); ok {
-			return v.(int64)
-		} else if v, ok := firstRawDataEntryTimestamp.Get(metaData.QueryId); ok {
-			if !metaData.EditMode {
-				firstRawDataEntryTimestamp.Remove(metaData.QueryId)
-				firstRawDataEntryTimestamp.Set(metaData.Id, v.(int64))
-			}
-			return v.(int64)
+func GetFirstRawDataEntryTimestamp(metaData models.MetaData) int64 {
+	if v, ok := firstRawDataEntryTimestamp.Get(metaData.Id); ok {
+		return v.(int64)
+	} else if v, ok := firstRawDataEntryTimestamp.Get(metaData.QueryId); ok {
+		if !metaData.EditMode {
+			firstRawDataEntryTimestamp.Remove(metaData.QueryId)
+			firstRawDataEntryTimestamp.Set(metaData.Id, v.(int64))
 		}
+		return v.(int64)
 	}
 	return math.MaxInt64
 }

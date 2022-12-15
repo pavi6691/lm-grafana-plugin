@@ -73,7 +73,12 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	metaData.EditMode = checkIfCallFromQueryEditor(&queryModel)
 	metaData.Id, metaData.IsForLastXTime = getUniqueID(&queryModel, &query, pluginSettings, metaData)
 	metaData.QueryId = getQueryId(&queryModel, &query, pluginSettings)
-	metaData.CacheTTLInSeconds = queryModel.CollectInterval + (constants.AdditionalCacheTTLInMinutes * 60)
+	if queryModel.EnableDataAppendFeature {
+		metaData.CacheTTLInSeconds = query.TimeRange.To.Unix() - query.TimeRange.From.Unix()
+		logger.Info("metaData.CacheTTLInSeconds = ", metaData.CacheTTLInSeconds)
+	} else {
+		metaData.CacheTTLInSeconds = 120
+	}
 	metaData.InstanceSelectedMap = make(map[string]int)
 	for i, v := range queryModel.InstanceSelected {
 		metaData.InstanceSelectedMap[v.Label] = i

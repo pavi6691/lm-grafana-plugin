@@ -10,6 +10,7 @@ import (
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
+	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
@@ -109,12 +110,13 @@ func GetTimeRanges(from int64, to int64, collectInterval int64, metaData models.
 }
 
 /*
-Returns seconds to wait before making API call for new data. is based on ds collect interval time and last time when data is recieved
+Returns seconds to wait before making API call for new data. is based on ds collect interval time and last time when data is recieved.
 */
-func GetWaitTimeInSec(metaData models.MetaData, collectInterval int64, enableDataAppendFeature bool) int64 {
-	waitSeconds := (cache.GetLastestRawDataEntryTimestamp(metaData, enableDataAppendFeature) + collectInterval) - time.Now().Unix()
-	if waitSeconds > 0 {
-		return waitSeconds
+func CheckToWait(metaData models.MetaData, query backend.DataQuery, queryModel models.QueryModel) int64 {
+	secondsAfterLastData := (query.TimeRange.To.Unix() - cache.GetLastestRawDataEntryTimestamp(metaData))
+	secondsBeforeFirstData := cache.GetFirstRawDataEntryTimestamp(metaData) - query.TimeRange.From.Unix()
+	if secondsAfterLastData < queryModel.CollectInterval && secondsBeforeFirstData < queryModel.CollectInterval {
+		return queryModel.CollectInterval - secondsAfterLastData
 	}
 	return 0
 }

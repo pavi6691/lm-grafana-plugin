@@ -8,7 +8,7 @@ import (
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 )
 
-// Stores mapping of host data source id against ket host and datasource. caching this mapping avoids API call for when host variable is changed
+// Stores mapping of host data source id against ket host and datasource. caching this mapping avoids multiple API call for when host variable is changed
 var hostDsAndHdsMapping = ttlcache.NewCache() //nolint:gochecknoglobals
 
 func GetHdsByHostAndDs(host string, ds int64) (int64, bool) {

@@ -72,23 +72,12 @@ func StoreAdditionalDataAt(index int, dataToAdd *models.MultiInstanceRawData, ra
 
 func IsDataForTimeRangePresentIncCache(metaData models.MetaData, from int64, to int64, logger log.Logger) (bool, int) {
 	if data, ok := GetData(metaData); ok {
-		logger.Info("001")
 		rawDataMap := data.(map[int]*models.MultiInstanceRawData)
 		if len(rawDataMap) > 0 {
-			logger.Info("002")
 			for k := 0; k < len(rawDataMap); k++ {
-				logger.Info("003")
 				for _, valueAndTime := range rawDataMap[k].Data.Instances {
-					logger.Info("004")
 					firstEntryTime := time.UnixMilli(valueAndTime.Time[len(valueAndTime.Time)-1]).Unix()
-					lastEntryTime := time.UnixMilli(valueAndTime.Time[0]).Unix()
-					logger.Info("GetFirstRawDataEntryTimestamp => ", time.UnixMilli(GetFirstRawDataEntryTimestamp(metaData, true)*1000))
-					logger.Info("firstEntryTime => ", time.UnixMilli(firstEntryTime*1000))
-					logger.Info("GetLastestRawDataEntryTimestamp => ", time.UnixMilli(GetLastestRawDataEntryTimestamp(metaData, true)*1000))
-					logger.Info("LastEntryTime => ", time.UnixMilli(lastEntryTime*1000))
 					if firstEntryTime-from > 300 {
-						logger.Error("From  => ", time.UnixMilli(from*1000))
-						logger.Error("firstEntryTime-from => ", firstEntryTime-from)
 						return false, -1
 					} else {
 						return true, k
