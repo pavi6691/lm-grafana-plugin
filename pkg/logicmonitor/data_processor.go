@@ -125,21 +125,31 @@ func calculateApiCalls(query backend.DataQuery, queryModel models.QueryModel, me
 		} else {
 			lastRawDataEntryTimestamp = UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
 		}
+		getEearlierData := firstRawDataEntryTimestamp < math.MaxInt64 && firstRawDataEntryTimestamp-query.TimeRange.From.Unix() > queryModel.CollectInterval
 		if queryModel.EnableHistoricalData {
-			if firstRawDataEntryTimestamp < math.MaxInt64 && firstRawDataEntryTimestamp-query.TimeRange.From.Unix() > queryModel.CollectInterval {
+			if getEearlierData {
 				prependTimeRangeForApiCall = GetTimeRanges(UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60),
 					firstRawDataEntryTimestamp-1, queryModel.CollectInterval, metaData, logger)
+			} else {
+				appendTimeRangeForApiCall = GetTimeRanges(lastRawDataEntryTimestamp, query.TimeRange.To.Unix(),
+					queryModel.CollectInterval, metaData, logger)
 			}
-			appendTimeRangeForApiCall = GetTimeRanges(lastRawDataEntryTimestamp, query.TimeRange.To.Unix(),
-				queryModel.CollectInterval, metaData, logger)
 		} else {
-			if firstRawDataEntryTimestamp-query.TimeRange.From.Unix() < queryModel.CollectInterval {
-				// makesure when timerange is changed, earlier data is required
-				lastRawDataEntryTimestamp = UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
+			if getEearlierData {
+				// restrict for only one API call as historical data is disabled
+				if (((query.TimeRange.To.Unix() - query.TimeRange.From.Unix()) / 60) / (queryModel.CollectInterval / 60)) < constants.MaxNumberOfRecordsPerApiCall {
+					prependTimeRangeForApiCall = append(prependTimeRangeForApiCall, models.PendingTimeRange{
+						From: UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60),
+						To:   firstRawDataEntryTimestamp - 1})
+				}
 			}
-			appendTimeRangeForApiCall = append(appendTimeRangeForApiCall, models.PendingTimeRange{
-				From: lastRawDataEntryTimestamp,
-				To:   query.TimeRange.To.Unix()})
+			if (query.TimeRange.To.Unix() - lastRawDataEntryTimestamp) > queryModel.CollectInterval {
+				appendTimeRangeForApiCall = append(appendTimeRangeForApiCall, models.PendingTimeRange{
+					From: lastRawDataEntryTimestamp,
+					To:   query.TimeRange.To.Unix()})
+			} else {
+				waitSec = queryModel.CollectInterval - (query.TimeRange.To.Unix() - lastRawDataEntryTimestamp)
+			}
 		}
 	}
 	if waitSec > 0 {
@@ -156,8 +166,8 @@ func recordApiCallsSofarLastMinute(pluginContext backend.PluginContext, appendTi
 	prependTimeRangeForApiCall []models.PendingTimeRange, response backend.DataResponse, logger log.Logger) {
 	apisCallsSofar := cache.GetApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls
 	totalApis := apisCallsSofar + len(prependTimeRangeForApiCall) + len(appendTimeRangeForApiCall)
-	allowedNrOfCalls := constants.NumberOfRecordsWithRateLimit - apisCallsSofar
-	if totalApis > constants.NumberOfRecordsWithRateLimit {
+	allowedNrOfCalls := constants.MaxNumberOfRecordsPerApiCall - apisCallsSofar
+	if totalApis > constants.MaxNumberOfRecordsPerApiCall {
 		logger.Error(fmt.Sprintf(constants.RateLimitAuditMsg, apisCallsSofar,
 			len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis, allowedNrOfCalls))
 		response.Error = fmt.Errorf(constants.RateLimitAuditMsg, apisCallsSofar,

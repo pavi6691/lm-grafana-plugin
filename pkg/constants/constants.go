@@ -144,5 +144,5 @@ const (
 	AdditionalCacheTTLInMinutes                 = 2
 	HostDsAndHdsMappingCacheTTLInMinutes        = 10
 	LastXMunitesCheckForFrameIdCalculationInSec = 90
-	NumberOfRecordsWithRateLimit                = 500
+	MaxNumberOfRecordsPerApiCall                = 500
 )

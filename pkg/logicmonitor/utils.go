@@ -78,17 +78,12 @@ func initiateNewDataFrame(instanceName string, dataPointSelected []models.LabelI
 	return frame
 }
 
-func RecordsToAppend(from int64, to int64, collectInterval int64) int64 {
-	totalNumOfRecords := ((to - from) / 60) / (collectInterval / 60)
-	return totalNumOfRecords
-}
-
 func GetTimeRanges(from int64, to int64, collectInterval int64, metaData models.MetaData, logger log.Logger) []models.PendingTimeRange {
 	pendingTimeRange := []models.PendingTimeRange{}
-	recordsToAppend := RecordsToAppend(from, to, collectInterval)
+	recordsToAppend := ((to - from) / 60) / (collectInterval / 60)
 	logger.Debug("RecordsToAppend => ", recordsToAppend)
-	for i := recordsToAppend; i > constants.NumberOfRecordsWithRateLimit; i = i - constants.NumberOfRecordsWithRateLimit {
-		to := from + (constants.NumberOfRecordsWithRateLimit * collectInterval)
+	for i := recordsToAppend; i > constants.MaxNumberOfRecordsPerApiCall; i = i - constants.MaxNumberOfRecordsPerApiCall {
+		to := from + (constants.MaxNumberOfRecordsPerApiCall * collectInterval)
 		if time.Now().Unix() < to {
 			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: time.Now().Unix()})
 			recordsToAppend = 0
@@ -96,7 +91,7 @@ func GetTimeRanges(from int64, to int64, collectInterval int64, metaData models.
 		} else {
 			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: to})
 		}
-		recordsToAppend = recordsToAppend - constants.NumberOfRecordsWithRateLimit
+		recordsToAppend = recordsToAppend - constants.MaxNumberOfRecordsPerApiCall
 		from = to + 1
 	}
 	if recordsToAppend > 0 {

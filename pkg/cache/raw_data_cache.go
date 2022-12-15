@@ -25,6 +25,11 @@ func GetData(metaData models.MetaData) (interface{}, bool) {
 	return rawDataCache.Get(metaData.Id)
 }
 
+func Remove(metaData models.MetaData) {
+	rawDataCache.Remove(metaData.Id)
+	rawDataCache.Remove(metaData.QueryId)
+}
+
 func GetCount() int {
 	return rawDataCache.Count()
 }
