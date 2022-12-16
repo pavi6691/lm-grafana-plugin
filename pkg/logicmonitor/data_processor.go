@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sync"
 	"time"
 
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
@@ -94,20 +93,22 @@ func getDataFromApi(timeRangeForApiCall []models.PendingTimeRange, rawDataMap ma
 	metaData models.MetaData, authSettings *models.AuthSettings, pluginSettings *models.PluginSettings,
 	logger log.Logger) map[int]*models.MultiInstanceRawData {
 	if len(timeRangeForApiCall) > 0 {
-		wg := &sync.WaitGroup{}
 		dataLenIdx := len(rawDataMap)
-		// nrOfConcurrentJobs := 5
 		jobs := make(chan Job, len(timeRangeForApiCall))
+		results := make(chan models.MultiInstanceRawData, len(timeRangeForApiCall))
 		for i := 0; i < len(timeRangeForApiCall); i++ {
-			wg.Add(1)
-			go CallDataAPI(wg, jobs, rawDataMap, &queryModel, pluginSettings, authSettings, metaData, logger)
+			go CallDataAPI(jobs, results, &queryModel, pluginSettings, authSettings, metaData, logger)
 		}
 		for i := 0; i < len(timeRangeForApiCall); i++ {
 			jobs <- Job{JobId: dataLenIdx, TimeFrom: timeRangeForApiCall[i].From, TimeTo: timeRangeForApiCall[i].To}
 			dataLenIdx++
 		}
 		close(jobs)
-		wg.Wait()
+		for i := len(timeRangeForApiCall); i > 0; i-- {
+			result := <-results
+			rawDataMap[result.JobId] = &result
+		}
+		close(results)
 	}
 	return rawDataMap
 }
@@ -239,10 +240,9 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 						Values: valueAndTime.Values}
 				}
 			}
-			// Set First and Last time of all records
-			SetFirstTimeStamp(metaData, valueAndTime)
 			SetLastTimeStamp(metaData, valueAndTime)
 		}
+		SetFirstTimeStamp(metaData, from)
 	}
 	// Check for errors, add franmes to response and store data in cache
 	if !metaData.MatchedInstances && len(dataFrameMap) == 0 && response.Error == nil {
@@ -265,12 +265,9 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 }
 
 // Set First record TimeStamp
-func SetFirstTimeStamp(metaData models.MetaData, valueAndTime models.ValuesAndTime) {
-	if len(valueAndTime.Time) > 0 {
-		firstTimeOfAllInstances := time.UnixMilli(valueAndTime.Time[len(valueAndTime.Time)-1]).Unix()
-		if cache.GetFirstRawDataEntryTimestamp(metaData) > firstTimeOfAllInstances {
-			cache.StoreFirstRawDataEntryTimestamp(metaData, firstTimeOfAllInstances)
-		}
+func SetFirstTimeStamp(metaData models.MetaData, from int64) {
+	if cache.GetFirstRawDataEntryTimestamp(metaData) > from {
+		cache.StoreFirstRawDataEntryTimestamp(metaData, from)
 	}
 }
 

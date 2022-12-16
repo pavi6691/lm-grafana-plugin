@@ -2,7 +2,6 @@ package logicmonitor
 
 import (
 	"encoding/json"
-	"sync"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 
@@ -18,12 +17,11 @@ type Job struct {
 }
 
 // Gets fresh data by calling rest API
-func CallDataAPI(wg *sync.WaitGroup, jobs chan Job, results map[int]*models.MultiInstanceRawData, queryModel *models.QueryModel, pluginSettings *models.PluginSettings,
+func CallDataAPI(jobs <-chan Job, results chan<- models.MultiInstanceRawData, queryModel *models.QueryModel, pluginSettings *models.PluginSettings,
 	authSettings *models.AuthSettings, metaData models.MetaData, logger log.Logger) {
-	defer wg.Done()
 	for job := range jobs {
 		var rawData models.MultiInstanceRawData //nolint:exhaustivestruct
-
+		rawData.JobId = job.JobId
 		fullPath := BuildURLReplacingQueryParams(constants.RawDataMultiInstanceReq, queryModel, job.TimeFrom, job.TimeTo, metaData)
 
 		logger.Debug("Calling API  => ", pluginSettings.Path, fullPath)
@@ -40,6 +38,6 @@ func CallDataAPI(wg *sync.WaitGroup, jobs chan Job, results map[int]*models.Mult
 				logger.Error(constants.ErrorUnmarshallingErrorData+"raw-data => ", err)
 			}
 		}
-		results[job.JobId] = &rawData
+		results <- rawData
 	}
 }
