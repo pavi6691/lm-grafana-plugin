@@ -162,12 +162,12 @@ func calculateApiCalls(query backend.DataQuery, queryModel models.QueryModel, me
 		metaData.IsForLastXTime && queryModel.EnableStrategicApiCallFeature {
 		logger.Warn(constants.NoTimeRangeError)
 	}
-	recordApiCallsSofarLastMinute(pluginContext, appendTimeRangeForApiCall, prependTimeRangeForApiCall, response, logger)
+	response = recordApiCallsSofarLastMinute(pluginContext, appendTimeRangeForApiCall, prependTimeRangeForApiCall, response, logger)
 	return response, prependTimeRangeForApiCall, appendTimeRangeForApiCall
 }
 
 func recordApiCallsSofarLastMinute(pluginContext backend.PluginContext, appendTimeRangeForApiCall []models.PendingTimeRange,
-	prependTimeRangeForApiCall []models.PendingTimeRange, response backend.DataResponse, logger log.Logger) {
+	prependTimeRangeForApiCall []models.PendingTimeRange, response backend.DataResponse, logger log.Logger) backend.DataResponse {
 	apisCallsSofar := cache.GetApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls
 	totalApis := apisCallsSofar + len(prependTimeRangeForApiCall) + len(appendTimeRangeForApiCall)
 	allowedNrOfCalls := constants.MaxNumberOfRecordsPerApiCall - apisCallsSofar
@@ -181,6 +181,7 @@ func recordApiCallsSofarLastMinute(pluginContext backend.PluginContext, appendTi
 	}
 	logger.Info(constants.CurrentNrOfApiCalls, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall))
 	logger.Info(constants.TotalApiCallsInLastOneMinute, totalApis)
+	return response
 }
 
 // TODO currently only instanceData is filtered and stored in cache. to optimize cache usage, we can apply datapoint filter as well in case query is not edited
@@ -245,9 +246,14 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 				}
 			}
 			SetLastTimeStamp(metaData, valueAndTime)
+			SetFirstTimeStamp(metaData, valueAndTime)
 		}
-		SetFirstTimeStamp(metaData, from)
 	}
+	/* SetFromTimeStamp
+	If there is no error and startTime of available data is later than requested.
+	In subsequent call there shouldn't be API calls for the data before actual data is available
+	*/
+	SetFromTimeStamp(metaData, from)
 	// Check for errors, add franmes to response and store data in cache
 	if !metaData.MatchedInstances && len(dataFrameMap) == 0 && response.Error == nil {
 		response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
@@ -269,7 +275,17 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 }
 
 // Set First record TimeStamp
-func SetFirstTimeStamp(metaData models.MetaData, from int64) {
+func SetFirstTimeStamp(metaData models.MetaData, valueAndTime models.ValuesAndTime) {
+	if len(valueAndTime.Time) > 0 {
+		firstTimeOfAllInstances := time.UnixMilli(valueAndTime.Time[len(valueAndTime.Time)-1]).Unix()
+		if cache.GetFirstRawDataEntryTimestamp(metaData) > firstTimeOfAllInstances {
+			cache.StoreFirstRawDataEntryTimestamp(metaData, firstTimeOfAllInstances)
+		}
+	}
+}
+
+// Set First record TimeStamp
+func SetFromTimeStamp(metaData models.MetaData, from int64) {
 	if cache.GetFirstRawDataEntryTimestamp(metaData) > from {
 		cache.StoreFirstRawDataEntryTimestamp(metaData, from)
 	}
