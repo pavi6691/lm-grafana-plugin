@@ -263,7 +263,7 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 			DataPoints:     rawDataMap[len(rawDataMap)-1].Data.DataPoints,
 			Instances:      finalDataMerged},
 			Error: "OK"})
-		logger.Info("Cache size (same as number of panels unless deleted as per ttl)", cache.GetCount())
+		logger.Info("Cache size (same as number of panels)", cache.GetCount())
 	}
 	return response
 }
