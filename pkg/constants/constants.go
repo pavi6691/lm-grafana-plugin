@@ -63,7 +63,8 @@ const (
 	CallApiAndAppendToFrameCache      = "Append to data in  FrameCache..."
 	RateLimitAuditMsg                 = "Rate limit exceeded! API calls so far = %d. current = %d. Total = %d. Allowed = %d"
 	RateLimitErrMsg                   = "rate limit exceeded"
-	RateLimitValidation               = "API calls so far in last one minute = %d. current = %d. Total = %d"
+	CurrentNrOfApiCalls               = "Current nr of API calls"
+	TotalApiCallsInLastOneMinute      = "Total API calls in last one minute"
 	APICallSMoreThanRateLimit         = "%d API calls required! causes rate limit error, please reduce the time range"
 	AuthSuccessMsg                    = "Authentication Success"
 	InternalServerErrorJsonErrMessage = `{ "error":"%s"}`
@@ -145,4 +146,5 @@ const (
 	HostDsAndHdsMappingCacheTTLInMinutes        = 10
 	LastXMunitesCheckForFrameIdCalculationInSec = 90
 	MaxNumberOfRecordsPerApiCall                = 500
+	EditModeLastingSeconds                      = 60 // this is the seconds EditMode will be lasted after last dit on query
 )

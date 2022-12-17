@@ -46,6 +46,9 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 		2. Caclulate time range for rate limits records, multiple call will be made to each time range
 	*/
 	response, prependTimeRangeForApiCall, appendTimeRangeForApiCall := calculateApiCalls(query, queryModel, metaData, pluginContext, response, logger)
+	if response.Error != nil {
+		return response
+	}
 
 	/*
 		Get earlier data than what is already in the cache
@@ -176,7 +179,8 @@ func recordApiCallsSofarLastMinute(pluginContext backend.PluginContext, appendTi
 	} else {
 		cache.AddApiCalls(pluginContext.DataSourceInstanceSettings.UID, totalApis)
 	}
-	logger.Info(fmt.Sprintf(constants.RateLimitValidation, apisCallsSofar, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall), totalApis))
+	logger.Info(constants.CurrentNrOfApiCalls, len(prependTimeRangeForApiCall)+len(appendTimeRangeForApiCall))
+	logger.Info(constants.TotalApiCallsInLastOneMinute, totalApis)
 }
 
 // TODO currently only instanceData is filtered and stored in cache. to optimize cache usage, we can apply datapoint filter as well in case query is not edited

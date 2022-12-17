@@ -75,10 +75,10 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	metaData.QueryId = getQueryId(&queryModel, &query, pluginSettings)
 	if queryModel.EnableStrategicApiCallFeature {
 		metaData.CacheTTLInSeconds = query.TimeRange.To.Unix() - query.TimeRange.From.Unix()
-		logger.Info("metaData.CacheTTLInSeconds = ", metaData.CacheTTLInSeconds)
 	} else {
 		metaData.CacheTTLInSeconds = 120
 	}
+	logger.Debug("metaData.CacheTTLInSeconds = ", metaData.CacheTTLInSeconds)
 	metaData.InstanceSelectedMap = make(map[string]int)
 	for i, v := range queryModel.InstanceSelected {
 		metaData.InstanceSelectedMap[v.Label] = i
@@ -131,5 +131,5 @@ func getIDForOneMinute(queryModel *models.QueryModel, query *backend.DataQuery, 
 }
 
 func checkIfCallFromQueryEditor(queryModel *models.QueryModel) bool {
-	return (time.Now().UnixMilli()-queryModel.LastQueryEditedTimeStamp)/1000 < 10
+	return (time.Now().UnixMilli()-queryModel.LastQueryEditedTimeStamp)/1000 < constants.EditModeLastingSeconds
 }

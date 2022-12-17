@@ -8,7 +8,7 @@ export class Constants {
     static readonly DataSourceReq = '/DataSourceReq'
     static readonly DataPointReq = '/DataPointReq'
 
-    static readonly ToolTipForHostVariableSwith = 'Currently single variable on dashboard is allowed. which is considered to be host. use custom type to add \
+    static readonly ToolTipForHostVariableSwitch = 'Currently single variable on dashboard is allowed. which is considered to be host. use custom type to add \
     hostname and id as key value pair. By desabling this flag so that data is fetched for host in the query but not host selected on dashboard variable. This \
     helps in cases 1) If selected host from variable is not matching with datasource selected in this query. 2) Instance names not matching with regex/selection \
     made. Note: If dashboard is intended for perticular host then do not disable this flag. And This flag has no effect if there are no variable added on \
@@ -19,7 +19,7 @@ export class Constants {
     static readonly EnableAutocomplete = true
     static readonly EnableRegexFeature = false
     static readonly EnableHistoricalData = true
-    static readonly EnableStrategicApiCallFeature = true
+    static readonly EnableStrategicApiCallFeature = true // Call API for only data that is not available in cache
     static readonly EnableHostVariableFeature = false
 
 }
