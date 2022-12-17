@@ -35,7 +35,7 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 	//TODO remove start
 	logger.Info("")
 	logger.Info("ID", metaData.Id)
-	logger.Info("EditMode", metaData.EditMode)
+	logger.Info("Is in EditMode", metaData.EditMode)
 	logger.Info("First Entry TimeStamp", time.UnixMilli(cache.GetFirstRawDataEntryTimestamp(metaData)*1000))
 	logger.Info("Last Entry TimeStamp", time.UnixMilli(cache.GetLastestRawDataEntryTimestamp(metaData)*1000))
 	//TODO remove end
