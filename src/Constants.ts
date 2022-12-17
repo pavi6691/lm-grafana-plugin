@@ -18,8 +18,8 @@ export class Constants {
     static readonly EnableBearerToken = true
     static readonly EnableAutocomplete = true
     static readonly EnableRegexFeature = false
-    static readonly EnableHistoricalData = true
-    static readonly EnableStrategicApiCallFeature = true // Call API for only data that is not available in cache
+    static readonly EnableHistoricalData = false
+    static readonly EnableStrategicApiCallFeature = false // Call API for only data that is not available in cache
     static readonly EnableHostVariableFeature = false
 
 }
