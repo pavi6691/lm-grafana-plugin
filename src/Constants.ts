@@ -18,10 +18,10 @@ export class Constants {
     static readonly EnableBearerToken = true
     static readonly EnableAutocomplete = true
 
-    static readonly EnableRegexFeature = false // Alows user to make instance selections on regex
-    static readonly EnableHostVariableFeature = false // Allow host variable. need to configure manually on variable section (Ex- Device1 : 123, Device2 : 321)
-    static readonly EnableHistoricalData = false // Get older data for more than 500 records
-    static readonly EnableStrategicApiCallFeature = false // New Algorithm. Call API for only data that is not available in cache
+    static readonly EnableRegexFeature = true // Alows user to make instance selections on regex
+    static readonly EnableHostVariableFeature = true // Allow host variable. need to configure manually on variable section (Ex- Device1 : 123, Device2 : 321)
+    static readonly EnableHistoricalData = true // Get older data for more than 500 records
+    static readonly EnableStrategicApiCallFeature = true // New Algorithm. Call API for only data that is not available in cache
     static readonly EnableApiCallThrottler = true // Restric number of API calls
 
 }
