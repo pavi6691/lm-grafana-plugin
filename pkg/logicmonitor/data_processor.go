@@ -63,7 +63,7 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 	// }
 	logger.Info("Prepend Nr Of Calls", len(prependTimeRangeForApiCall))
 	logger.Info("Append Nr Of Calls", len(appendTimeRangeForApiCall))
-	logger.Error("Current Api Calls", cache.GetNrOfApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls)
+	logger.Error("Api calls so far", cache.GetNrOfApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls)
 	/*
 		Get earlier data than what is already in the cache
 	*/

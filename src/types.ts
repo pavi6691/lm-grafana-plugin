@@ -24,6 +24,8 @@ export interface MyQuery extends DataQuery {
   enabledHistoricalData: boolean
   enableStrategicApiCallFeature: boolean
   enableApiCallThrottler: boolean
+  maxNumberOfApiCallPerQuery: any
+  concurrentApiCallsPerQuery: any
 }
 export const defaultQuery: Partial<MyQuery> = {
   withStreaming: false,

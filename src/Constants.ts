@@ -21,7 +21,10 @@ export class Constants {
     static readonly EnableRegexFeature = true // Alows user to make instance selections on regex
     static readonly EnableHostVariableFeature = true // Allow host variable. need to configure manually on variable section (Ex- Device1 : 123, Device2 : 321)
     static readonly EnableHistoricalData = true // Get older data for more than 500 records
-    static readonly EnableStrategicApiCallFeature = true // New Algorithm. Call API for only data that is not available in cache
-    static readonly EnableApiCallThrottler = true // Restric number of API calls
 
+    // New Algorithm. Call API for only data that is not available in cache. set it false in case of historicaldata is not enabled
+    static readonly EnableStrategicApiCallFeature = true
+    static readonly EnableApiCallThrottler = true // Handle API calls on throttler strategy in santaba
+    static readonly MaxNumberOfApiCallPerQuery = -1 // Max API calls per query if EnableHistoricalData is enabled. That retrict data on graph. -1 for unlimited
+    static readonly ConcurrentApiCallsPerQuery = -1 // Concurrent API calls per query if EnableHistoricalData is enabled. -1 for unlimited
 }

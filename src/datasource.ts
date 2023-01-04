@@ -27,17 +27,21 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
   }
 
   applyTemplateVariables(query: MyQuery, scopedVars: ScopedVars): Record<string, any> {
+    // load configurations
     query.enabledHostVariableFeature = Constants.EnableHostVariableFeature
     query.enableStrategicApiCallFeature = Constants.EnableStrategicApiCallFeature
     query.enabledHistoricalData = Constants.EnableHistoricalData
     query.enabledRegexFeature = Constants.EnableRegexFeature
     query.enableApiCallThrottler = Constants.EnableApiCallThrottler
-    if(!Constants.EnableHostVariableFeature || getTemplateSrv().getVariables().length === 0 || query.enableHostVariable !== true) {
+    query.maxNumberOfApiCallPerQuery = Constants.MaxNumberOfApiCallPerQuery
+    query.concurrentApiCallsPerQuery = Constants.ConcurrentApiCallsPerQuery
+    // Interpolate variable
+    if (!Constants.EnableHostVariableFeature || getTemplateSrv().getVariables().length === 0 || query.enableHostVariable !== true) {
       return query;
     }
     console.log("enabled2")
     const hostId = this.getValuesForVariable(getTemplateSrv().getVariables()[0].name)
-    if(query.hostSelected.value === hostId.value) {
+    if (query.hostSelected.value === hostId.value) {
       return query
     }
     var interpolatedQuery: MyQuery = {
@@ -52,7 +56,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     var values
     // Instead of interpolating the string, we collect the values in an array.
     getTemplateSrv().replace(`$${name}`, {}, (value: string | string[]) => {
-      values = {label:value, value:value}
+      values = { label: value, value: value }
       // We don't really care about the string here.
       return '';
     });

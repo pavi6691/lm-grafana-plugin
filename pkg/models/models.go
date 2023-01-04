@@ -77,6 +77,8 @@ type QueryModel struct {
 	EnableStrategicApiCallFeature bool               `json:"enableStrategicApiCallFeature"`
 	EnableHostVariableFeature     bool               `json:"enabledHostVariableFeature"`
 	EnableApiCallThrottler        bool               `json:"enableApiCallThrottler"`
+	MaxNumberOfApiCallPerQuery    int64              `json:"maxNumberOfApiCallPerQuery"`
+	ConcurrentApiCallsPerQuery    int64              `json:"concurrentApiCallsPerQuery"`
 }
 
 type Error struct {

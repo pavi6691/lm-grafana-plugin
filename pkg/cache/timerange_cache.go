@@ -42,7 +42,8 @@ func GetTimeRanges(query backend.DataQuery, queryModel models.QueryModel, metaDa
 	firstRawDataEntryTimestamp := getStartTime(metaData)
 	lastRawDataEntryTimestamp := getEndTime(metaData)
 	waitSec := checkToWait(metaData, query, queryModel)
-	if waitSec == 0 || response.Error != nil {
+	maxNumberOfApiCalls := numberOfApiCalls(firstRawDataEntryTimestamp, query.TimeRange.To.Unix(), queryModel)
+	if (waitSec == 0 || response.Error != nil) && (queryModel.MaxNumberOfApiCallPerQuery < 0 || queryModel.MaxNumberOfApiCallPerQuery > maxNumberOfApiCalls) {
 		if lastRawDataEntryTimestamp > 0 && queryModel.EnableStrategicApiCallFeature {
 			lastRawDataEntryTimestamp++
 		} else {
@@ -93,17 +94,19 @@ func GetTimeRanges(query backend.DataQuery, queryModel models.QueryModel, metaDa
 
 func getTimeRanges(timeRangeStart int64, timeRangeEnd int64, queryModel models.QueryModel, pluginContext backend.PluginContext,
 	metaData models.MetaData, logger log.Logger) ([]models.PendingTimeRange, models.MetaData) {
-	recordsToAppend := ((timeRangeEnd - timeRangeStart) / 60) / (queryModel.CollectInterval / 60)
-	logger.Info("RecordsToAppend => ", recordsToAppend)
-	currentApiCalls := (recordsToAppend / constants.MaxNumberOfRecordsPerApiCall)
+	recordsToAppend := recordsToAppend(timeRangeStart, timeRangeEnd, queryModel)
+	currentApiCalls := numberOfApiCalls(timeRangeStart, timeRangeEnd, queryModel)
 	if recordsToAppend%constants.MaxNumberOfRecordsPerApiCall > 0 {
 		currentApiCalls++
 	}
-	logger.Info("Required Api Calls => ", currentApiCalls)
+	if queryModel.ConcurrentApiCallsPerQuery > 0 && currentApiCalls > queryModel.ConcurrentApiCallsPerQuery {
+		currentApiCalls = queryModel.ConcurrentApiCallsPerQuery
+	}
 	var pendingTimeRange []models.PendingTimeRange
 	mutex.Lock()
+	logger.Info("RecordsToAppend => ", recordsToAppend)
+	logger.Error("Current Api Calls", currentApiCalls)
 	apisCallsSofar := GetNrOfApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls
-	logger.Info("Api Calls So far = ", apisCallsSofar)
 	if queryModel.EnableApiCallThrottler && (currentApiCalls+int64(apisCallsSofar)) > constants.MaxApiCallsRateLimit {
 		metaData.PendingApiCalls = (int(currentApiCalls) + apisCallsSofar) - constants.MaxApiCallsRateLimit
 		currentApiCalls = constants.MaxApiCallsRateLimit - int64(apisCallsSofar)
@@ -131,6 +134,15 @@ func getTimeRanges(timeRangeStart int64, timeRangeEnd int64, queryModel models.Q
 	AddNrOfApiCalls(pluginContext.DataSourceInstanceSettings.UID, int(currentApiCalls))
 	mutex.Unlock()
 	return pendingTimeRange, metaData
+}
+
+func recordsToAppend(timeRangeStart int64, timeRangeEnd int64, queryModel models.QueryModel) int64 {
+	return ((timeRangeEnd - timeRangeStart) / 60) / (queryModel.CollectInterval / 60)
+}
+
+func numberOfApiCalls(timeRangeStart int64, timeRangeEnd int64, queryModel models.QueryModel) int64 {
+	recordsToAppend := recordsToAppend(timeRangeStart, timeRangeEnd, queryModel)
+	return (recordsToAppend / constants.MaxNumberOfRecordsPerApiCall)
 }
 
 /*

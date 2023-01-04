@@ -75,7 +75,7 @@ const (
 	HostHasNoMatchingDataSource       = "Selected variable host has no matching datasource = %s OR no instances. Tip : Disable host variable to use host in the query"
 	InstancesNotMatchingWithHosts     = "no matching instances found"
 	NoDataFromLM                      = "Got no data from LM"
-	NoTimeRangeError                  = "Got no TimeRange for API call, try again, it should work!"
+	NoTimeRangeError                  = "no timeRange for API call"
 	WaitingSecondsForNextData         = "Waiting seconds for next data"
 )
 
