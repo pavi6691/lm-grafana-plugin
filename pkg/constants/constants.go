@@ -63,7 +63,7 @@ const (
 	CallApiAndAppendToFrameCache      = "Append to data in  FrameCache..."
 	RateLimitAuditMsg                 = "Rate limit exceeded! API calls so far = %d. current = %d. Total = %d. Allowed = %d"
 	RateLimitErrMsg                   = "rate limit exceeded"
-	PendingApiCalls                   = "API calls Pending"
+	PendingApiCallsMsg                = "API calls pending"
 	RateLimitExceeding                = "%d API calls pending, Graph is building gradually..."
 	CurrentNrOfApiCalls               = "Current nr of API calls"
 	TotalApiCallsInLastOneMinute      = "Total API calls in last one minute"
@@ -77,6 +77,7 @@ const (
 	NoDataFromLM                      = "Got no data from LM"
 	NoTimeRangeError                  = "no timeRange for API call"
 	WaitingSecondsForNextData         = "Waiting seconds for next data"
+	NoHostFoundForGivenGlobPattern    = "No host found for globe pattern = %s"
 )
 
 // These constants are from PathEndpoints.ts.
@@ -146,7 +147,7 @@ const (
 const (
 	QueryDataTTLInMinutes                       = 10
 	AdditionalCacheTTLInMinutes                 = 2
-	HostDsAndHdsMappingCacheTTLInMinutes        = 10
+	InterpolateDataCacheTTLMinutes              = 60
 	LastXMunitesCheckForFrameIdCalculationInSec = 90
 	MaxNumberOfRecordsPerApiCall                = 500
 	MaxApiCallsRateLimit                        = 500

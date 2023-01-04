@@ -35,15 +35,13 @@ type ApiCallsTracker struct {
 
 func GetTimeRanges(query backend.DataQuery, queryModel models.QueryModel, metaData models.MetaData, pluginContext backend.PluginContext,
 	response backend.DataResponse, logger log.Logger) (backend.DataResponse, []models.PendingTimeRange, []models.PendingTimeRange, models.MetaData) {
-	logger.Info("First Entry TimeStamp", time.UnixMilli(getStartTime(metaData)*1000))
-	logger.Info("Last Entry TimeStamp", time.UnixMilli(getEndTime(metaData)*1000))
 	var prependTimeRangeForApiCall []models.PendingTimeRange
 	var appendTimeRangeForApiCall []models.PendingTimeRange
 	firstRawDataEntryTimestamp := getStartTime(metaData)
 	lastRawDataEntryTimestamp := getEndTime(metaData)
 	waitSec := checkToWait(metaData, query, queryModel)
-	maxNumberOfApiCalls := numberOfApiCalls(firstRawDataEntryTimestamp, query.TimeRange.To.Unix(), queryModel)
-	if (waitSec == 0 || response.Error != nil) && (queryModel.MaxNumberOfApiCallPerQuery < 0 || queryModel.MaxNumberOfApiCallPerQuery > maxNumberOfApiCalls) {
+	currentApiCalls := numberOfApiCalls(firstRawDataEntryTimestamp, query.TimeRange.To.Unix(), queryModel)
+	if (waitSec == 0 || response.Error != nil) && (queryModel.MaxNumberOfApiCallPerQuery < 0 || queryModel.MaxNumberOfApiCallPerQuery > currentApiCalls) {
 		if lastRawDataEntryTimestamp > 0 && queryModel.EnableStrategicApiCallFeature {
 			lastRawDataEntryTimestamp++
 		} else {
@@ -78,10 +76,11 @@ func GetTimeRanges(query backend.DataQuery, queryModel models.QueryModel, metaDa
 		}
 	}
 	if metaData.PendingApiCalls > 0 {
-		logger.Warn(constants.PendingApiCalls, metaData.PendingApiCalls)
+		logger.Warn(constants.RateLimitExceeding, metaData.PendingApiCalls)
 		response.Error = fmt.Errorf(fmt.Sprintf(constants.RateLimitExceeding, metaData.PendingApiCalls))
 	} else {
 		if waitSec > 0 {
+			logger.Info("Id", metaData.Id)
 			logger.Info(constants.WaitingSecondsForNextData, waitSec)
 		} else if len(prependTimeRangeForApiCall) == 0 && len(appendTimeRangeForApiCall) == 0 &&
 			metaData.IsForLastXTime && queryModel.EnableStrategicApiCallFeature {
@@ -104,14 +103,25 @@ func getTimeRanges(timeRangeStart int64, timeRangeEnd int64, queryModel models.Q
 	}
 	var pendingTimeRange []models.PendingTimeRange
 	mutex.Lock()
-	logger.Info("RecordsToAppend => ", recordsToAppend)
-	logger.Error("Current Api Calls", currentApiCalls)
+	logger.Info("")
+	logger.Info("ID", metaData.Id)
+	logger.Debug("Is in EditMode", metaData.EditMode)
+	logger.Debug("First Entry TimeStamp", time.UnixMilli(getStartTime(metaData)*1000))
+	logger.Debug("Last Entry TimeStamp", time.UnixMilli(getEndTime(metaData)*1000))
+	logger.Debug("RecordsToAppend", recordsToAppend)
+	logger.Info("Required Api Calls", currentApiCalls)
+	pendingApiCalls := numberOfApiCalls(timeRangeStart, getStartTime(metaData), queryModel)
+	if pendingApiCalls > 0 {
+		logger.Error(constants.PendingApiCallsMsg, pendingApiCalls)
+	}
 	apisCallsSofar := GetNrOfApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls
+	logger.Debug("Api calls so far this minute", apisCallsSofar)
 	if queryModel.EnableApiCallThrottler && (currentApiCalls+int64(apisCallsSofar)) > constants.MaxApiCallsRateLimit {
 		metaData.PendingApiCalls = (int(currentApiCalls) + apisCallsSofar) - constants.MaxApiCallsRateLimit
 		currentApiCalls = constants.MaxApiCallsRateLimit - int64(apisCallsSofar)
 	}
-	logger.Info("Available nr of Api Calls => ", currentApiCalls)
+	logger.Info("Available nr of Api Calls", currentApiCalls)
+	logger.Info("Cache size (same as number of panels)", GetCount())
 	pendingTimeRange = make([]models.PendingTimeRange, currentApiCalls)
 	var call int64
 	var from int64

@@ -50,7 +50,7 @@ Get frame from cache if present. this is the case when data will be just appende
 If not present in the cache then its the first call.
 Get existing frame if its for the same instance. This is in case of multiple rawdata api calls
 */
-func getFrame(tempMap map[string]*data.Frame, instanceName string, dataPointSelected []models.LabelIntValue) *data.Frame {
+func GetFrame(tempMap map[string]*data.Frame, instanceName string, dataPointSelected []models.LabelIntValue) *data.Frame {
 
 	val, ok := tempMap[instanceName]
 	if ok {

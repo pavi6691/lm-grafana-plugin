@@ -39,7 +39,6 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     if (!Constants.EnableHostVariableFeature || getTemplateSrv().getVariables().length === 0 || query.enableHostVariable !== true) {
       return query;
     }
-    console.log("enabled2")
     const hostId = this.getValuesForVariable(getTemplateSrv().getVariables()[0].name)
     if (query.hostSelected.value === hostId.value) {
       return query

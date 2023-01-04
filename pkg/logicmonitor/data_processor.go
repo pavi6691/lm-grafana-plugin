@@ -3,13 +3,16 @@ package logicmonitor
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
+	"regexp"
 	"time"
 
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpclient"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
+	utils "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/utils"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
@@ -40,13 +43,8 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 	response := backend.DataResponse{}
 	finalData := make(map[int]*models.MultiInstanceRawData)
 
-	//TODO remove start
-	logger.Info("")
-	logger.Info("ID", metaData.Id)
-	logger.Info("Is in EditMode", metaData.EditMode)
 	var prependTimeRangeForApiCall []models.PendingTimeRange
 	var appendTimeRangeForApiCall []models.PendingTimeRange
-	//TODO remove end
 
 	/*
 		Step 1
@@ -61,14 +59,16 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 	// if response.Error != nil {
 	// 	return response
 	// }
-	logger.Info("Prepend Nr Of Calls", len(prependTimeRangeForApiCall))
-	logger.Info("Append Nr Of Calls", len(appendTimeRangeForApiCall))
-	logger.Error("Api calls so far", cache.GetNrOfApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls)
+
+	// Validate with Single call first for any Errors
+	finalData, response, queryModel = validateWithFirstCall(finalData, queryModel, metaData, authSettings, pluginSettings, pluginContext,
+		response, prependTimeRangeForApiCall, appendTimeRangeForApiCall, false, logger)
+
 	/*
 		Get earlier data than what is already in the cache
 	*/
 	finalData = initApiCallsAndAccomulateResponse(prependTimeRangeForApiCall, finalData, queryModel, metaData, authSettings, pluginSettings, logger)
-	logger.Info("Prepend Nr Of Entries", getNrOfEntries(finalData, 0))
+	logger.Debug("Prepend Nr Of Entries", getNrOfEntries(finalData, 0))
 	/*
 		Get data from cache
 	*/
@@ -77,7 +77,7 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 		if cachedData, ok = data.(*models.MultiInstanceRawData); ok {
 			finalData[len(finalData)] = cachedData
 		}
-		logger.Info("Cached Number of entries", getNrForSingleEntry(cachedData.Data.Instances))
+		logger.Debug("Cached Number of entries", getNrForSingleEntry(cachedData.Data.Instances))
 	}
 
 	/*
@@ -85,21 +85,44 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 	*/
 	lenTillCached := len(finalData)
 	finalData = initApiCallsAndAccomulateResponse(appendTimeRangeForApiCall, finalData, queryModel, metaData, authSettings, pluginSettings, logger)
-	logger.Info("Append Number of entries", getNrOfEntries(finalData, lenTillCached))
-	logger.Info("Total Number of entries", getNrOfEntries(finalData, 0))
+	logger.Debug("Append Number of entries", getNrOfEntries(finalData, lenTillCached))
+	logger.Debug("Total Number of entries", getNrOfEntries(finalData, 0))
 	if len(finalData) == 0 {
 		if response.Error == nil {
 			response.Error = errors.New(constants.NoDataFromLM)
 		}
 	} else {
 		response = processFinalData(queryModel, metaData, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(), finalData, response, logger)
-		logger.Info("size of data in bytes", cache.GetRealSize(metaData))
+		logger.Debug("size of data in bytes", cache.GetRealSize(metaData))
 	}
-	//TODO remove start
-	logger.Info("")
-	//TODO remove end
 
 	return response
+}
+
+func validateWithFirstCall(finalData map[int]*models.MultiInstanceRawData, queryModel models.QueryModel, metaData models.MetaData,
+	authSettings *models.AuthSettings, pluginSettings *models.PluginSettings, pluginContext backend.PluginContext,
+	response backend.DataResponse, prependTimeRangeForApiCall []models.PendingTimeRange, appendTimeRangeForApiCall []models.PendingTimeRange,
+	seondCall bool, logger log.Logger) (map[int]*models.MultiInstanceRawData, backend.DataResponse, models.QueryModel) {
+	if len(prependTimeRangeForApiCall) > 0 {
+		finalData[0] = call(0, prependTimeRangeForApiCall[0].From, prependTimeRangeForApiCall[0].To, pluginSettings, authSettings, &queryModel, metaData, logger)
+	} else if len(appendTimeRangeForApiCall) > 0 {
+		finalData[0] = call(0, appendTimeRangeForApiCall[0].From, appendTimeRangeForApiCall[0].To, pluginSettings, authSettings, &queryModel, metaData, logger)
+	}
+	if len(finalData) > 0 && finalData[0].Error != "" && finalData[0].Error != "OK" {
+		deviceMatched, _ := regexp.MatchString("Device<(.*?)> is not found", finalData[0].Error)
+		deviceDataSourceMatched, _ := regexp.MatchString("DeviceDataSource<(.*?)> is not found", finalData[0].Error)
+		if (deviceMatched || deviceDataSourceMatched) && !seondCall {
+			queryModel, response = cache.InterpolateHostDetails(pluginSettings, authSettings, logger, pluginContext, queryModel, response)
+			queryModel, response = cache.InterpolateHostDataSourceDetails(pluginSettings, authSettings, logger, pluginContext, queryModel, response)
+			validateWithFirstCall(finalData, queryModel, metaData, authSettings, pluginSettings, pluginContext,
+				response, prependTimeRangeForApiCall, appendTimeRangeForApiCall, true, logger)
+
+		} else {
+			response.Error = fmt.Errorf(finalData[0].Error)
+			return finalData, response, queryModel
+		}
+	}
+	return finalData, response, queryModel
 }
 
 /*
@@ -111,18 +134,18 @@ func initApiCallsAndAccomulateResponse(timeRangeForApiCall []models.PendingTimeR
 	if len(timeRangeForApiCall) > 0 {
 		dataLenIdx := len(rawDataMap)
 		jobs := make(chan Job, len(timeRangeForApiCall))
-		results := make(chan models.MultiInstanceRawData, len(timeRangeForApiCall))
-		for i := 0; i < len(timeRangeForApiCall); i++ {
+		results := make(chan *models.MultiInstanceRawData, len(timeRangeForApiCall))
+		for i := 1; i < len(timeRangeForApiCall); i++ {
 			go callDataAPI(jobs, results, &queryModel, pluginSettings, authSettings, metaData, logger)
 		}
-		for i := 0; i < len(timeRangeForApiCall); i++ {
+		for i := 1; i < len(timeRangeForApiCall); i++ {
 			jobs <- Job{JobId: dataLenIdx, TimeFrom: timeRangeForApiCall[i].From, TimeTo: timeRangeForApiCall[i].To}
 			dataLenIdx++
 		}
 		close(jobs)
-		for i := len(timeRangeForApiCall); i > 0; i-- {
+		for i := len(timeRangeForApiCall); i > 1; i-- {
 			result := <-results
-			rawDataMap[result.JobId] = &result
+			rawDataMap[result.JobId] = result
 		}
 		close(results)
 	}
@@ -130,31 +153,34 @@ func initApiCallsAndAccomulateResponse(timeRangeForApiCall []models.PendingTimeR
 }
 
 // Gets fresh data by calling rest API
-func callDataAPI(jobs chan Job, results chan<- models.MultiInstanceRawData, queryModel *models.QueryModel, pluginSettings *models.PluginSettings,
+func callDataAPI(jobs chan Job, results chan<- *models.MultiInstanceRawData, queryModel *models.QueryModel, pluginSettings *models.PluginSettings,
 	authSettings *models.AuthSettings, metaData models.MetaData, logger log.Logger) {
 	for job := range jobs {
-		var rawData models.MultiInstanceRawData //nolint:exhaustivestruct
-		rawData.JobId = job.JobId
-		rawData.FromTime = job.TimeFrom
-		rawData.ToTime = job.TimeTo
-		fullPath := BuildURLReplacingQueryParams(constants.RawDataMultiInstanceReq, queryModel, job.TimeFrom, job.TimeTo, metaData)
+		results <- call(job.JobId, job.TimeFrom, job.TimeTo, pluginSettings, authSettings, queryModel, metaData, logger)
+	}
+}
 
-		logger.Debug("Calling API  => ", pluginSettings.Path, fullPath)
-		//todo remove the loggers
-
-		respByte, err := httpclient.Get(pluginSettings, authSettings, fullPath, constants.RawDataMultiInstanceReq, logger)
+func call(jobId int, fromTime int64, toTime int64, pluginSettings *models.PluginSettings, authSettings *models.AuthSettings,
+	queryModel *models.QueryModel, metaData models.MetaData, logger log.Logger) *models.MultiInstanceRawData {
+	var rawData models.MultiInstanceRawData
+	rawData.JobId = jobId
+	rawData.FromTime = fromTime
+	rawData.ToTime = toTime
+	fullPath := utils.BuildURLReplacingQueryParams(constants.RawDataMultiInstanceReq, queryModel, rawData.FromTime, rawData.ToTime, metaData)
+	logger.Debug("Calling API  => ", pluginSettings.Path, fullPath)
+	//todo remove the loggers
+	respByte, err := httpclient.Get(pluginSettings, authSettings, fullPath, constants.RawDataMultiInstanceReq, logger)
+	if err != nil {
+		rawData.Error = err.Error()
+		logger.Error("Error from server => ", err)
+	} else {
+		err = json.Unmarshal(respByte, &rawData)
 		if err != nil {
 			rawData.Error = err.Error()
-			logger.Error("Error from server => ", err)
-		} else {
-			err = json.Unmarshal(respByte, &rawData)
-			if err != nil {
-				rawData.Error = err.Error()
-				logger.Error(constants.ErrorUnmarshallingErrorData+"raw-data => ", err)
-			}
+			logger.Error(constants.ErrorUnmarshallingErrorData+"raw-data => ", err)
 		}
-		results <- rawData
 	}
+	return &rawData
 }
 
 // TODO currently only instanceData is filtered and stored in cache. to optimize cache usage, we can apply datapoint filter as well in case query is not edited
@@ -172,7 +198,7 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 		cache.SetFirstTimeStamp(metaData, rawDataMap[k].FromTime)
 		for instanceName, valueAndTime := range rawDataMap[k].Data.Instances {
 			// Check if instance selected/regex matching
-			shortenInstance, matched := IsInstanceMatched(metaData, &queryModel, rawDataMap[k].Data.DataSourceName, instanceName)
+			shortenInstance, matched := utils.IsInstanceMatched(metaData, &queryModel, rawDataMap[k].Data.DataSourceName, instanceName)
 			if matched {
 				if len(valueAndTime.Time) > 0 {
 					cache.SetLastTimeStamp(metaData, time.UnixMilli(valueAndTime.Time[0]).Unix())
@@ -180,7 +206,7 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 				metaData.MatchedInstances = true
 				var frame *data.Frame
 				dataPontMap := make(map[string]int)
-				frame = getFrame(dataFrameMap, shortenInstance, queryModel.DataPointSelected)
+				frame = utils.GetFrame(dataFrameMap, shortenInstance, queryModel.DataPointSelected)
 				// this dataPontMap is to keep indexs of datapoints so as to get value from Values array for selected datapoints
 				for i, v := range rawDataMap[k].Data.DataPoints {
 					dataPontMap[v] = i
@@ -239,7 +265,6 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 			DataPoints:     rawDataMap[len(rawDataMap)-1].Data.DataPoints,
 			Instances:      finalDataMerged},
 			Error: "OK"})
-		logger.Info("Cache size (same as number of panels)", cache.GetCount())
 	}
 	return response
 }

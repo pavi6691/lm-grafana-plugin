@@ -10,6 +10,7 @@ import (
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpclient"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/logicmonitor"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
+	utils "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/utils"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
@@ -89,7 +90,7 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 		return healthRequest, nil
 	}
 
-	requestURL := logicmonitor.BuildURLReplacingQueryParams(constants.HealthCheckReq, nil, 0, 0, models.MetaData{})
+	requestURL := utils.BuildURLReplacingQueryParams(constants.HealthCheckReq, nil, 0, 0, models.MetaData{})
 	if requestURL == "" {
 		healthRequest.Message = constants.HealthAPIURLErrMsg
 		healthRequest.Status = backend.HealthStatusError
@@ -184,7 +185,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 		})
 	}
 
-	requestURL := logicmonitor.BuildURLReplacingQueryParams(req.Path, &queryModel, 0, 0, models.MetaData{})
+	requestURL := utils.BuildURLReplacingQueryParams(req.Path, &queryModel, 0, 0, models.MetaData{})
 	if requestURL == "" {
 		ds.Logger.Error(constants.URLConfigurationErrMsg)
 

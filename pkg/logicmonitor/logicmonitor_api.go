@@ -3,16 +3,13 @@ package logicmonitor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
-	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpclient"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
+	utils "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/utils"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
@@ -33,40 +30,9 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	logger.Debug("queryModel => ", queryModel)
 	// interpolatedQuery, when variable is added on dashboard, one variable on dashboard is hadled here. its considered to be host
 	if queryModel.EnableHostVariableFeature {
-		logger.Info("queryModel.interpolatedQuery? => ", queryModel.IsQueryInterpolated)
-		hdsSelected, present := cache.GetHdsByHostAndDs(queryModel.HostSelected.Value, queryModel.DataSourceSelected.Ds)
+		logger.Debug("queryModel.interpolatedQuery? => ", queryModel.IsQueryInterpolated)
 		if queryModel.IsQueryInterpolated {
-			if !present {
-				requestURL := BuildURLReplacingQueryParams(constants.HostDataSourceReq, &queryModel, 0, 0, models.MetaData{})
-				if requestURL == "" {
-					logger.Error(constants.URLConfigurationErrMsg)
-					return response
-				}
-				var respByte []byte
-				respByte, response.Error = httpclient.Get(pluginSettings, authSettings, requestURL, constants.HostDataSourceReq, logger)
-				if response.Error != nil {
-					logger.Error("Error from server => ", response.Error)
-					return response
-				}
-				var hdsReponse models.HostDataSource
-				response.Error = json.Unmarshal(respByte, &hdsReponse)
-				if response.Error != nil {
-					logger.Error(constants.ErrorUnmarshallingErrorData+"hdsReponse =>", response.Error.Error())
-					return response
-				}
-				if hdsReponse.Total == 1 {
-					queryModel.HdsSelected = hdsReponse.Items[0].Id
-					cache.StoreHds(queryModel.HostSelected.Value, queryModel.DataSourceSelected.Ds, queryModel.HdsSelected)
-				} else if hdsReponse.Total > 1 {
-					response.Error = errors.New(constants.MoreThanOneHostDataSources + queryModel.DataSourceSelected.Label)
-					return response
-				} else {
-					response.Error = errors.New(fmt.Sprintf(constants.HostHasNoMatchingDataSource, queryModel.DataSourceSelected.Label))
-					return response
-				}
-			} else {
-				queryModel.HdsSelected = hdsSelected
-			}
+			queryModel, response = cache.InterpolateHostDataSourceDetails(pluginSettings, authSettings, logger, pluginContext, queryModel, response)
 		}
 	}
 
@@ -108,7 +74,7 @@ func getUniqueID(queryModel *models.QueryModel, query *backend.DataQuery, plugin
 		//backword compatible
 		return getIDForOneMinute(queryModel, query, pluginSettings, metaData)
 	}
-	if UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60) > (time.Now().Unix() - constants.LastXMunitesCheckForFrameIdCalculationInSec) { // LastXTime, return true in this case
+	if utils.UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60) > (time.Now().Unix() - constants.LastXMunitesCheckForFrameIdCalculationInSec) { // LastXTime, return true in this case
 		if metaData.EditMode {
 			return getQueryId(queryModel, query, pluginSettings), true
 		} else {
@@ -129,8 +95,8 @@ func getQueryId(queryModel *models.QueryModel, query *backend.DataQuery, pluginS
 }
 
 func getIDForOneMinute(queryModel *models.QueryModel, query *backend.DataQuery, pluginSettings *models.PluginSettings, metaData models.MetaData) (string, bool) { //nolint:lll
-	FromTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
-	ToTimeUnixTruncated := UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60)
+	FromTimeUnixTruncated := utils.UnixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
+	ToTimeUnixTruncated := utils.UnixTruncateToNearestMinute(query.TimeRange.To.Unix(), 60)
 	if metaData.EditMode {
 		return getQueryId(queryModel, query, pluginSettings) +
 			strconv.FormatInt(FromTimeUnixTruncated, 10) + strconv.FormatInt(ToTimeUnixTruncated, 10), true

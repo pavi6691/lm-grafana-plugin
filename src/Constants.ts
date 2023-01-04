@@ -25,6 +25,6 @@ export class Constants {
     // New Algorithm. Call API for only data that is not available in cache. set it false in case of historicaldata is not enabled
     static readonly EnableStrategicApiCallFeature = true
     static readonly EnableApiCallThrottler = true // Handle API calls on throttler strategy in santaba
-    static readonly MaxNumberOfApiCallPerQuery = -1 // Max API calls per query if EnableHistoricalData is enabled. That retrict data on graph. -1 for unlimited
-    static readonly ConcurrentApiCallsPerQuery = -1 // Concurrent API calls per query if EnableHistoricalData is enabled. -1 for unlimited
+    static readonly MaxNumberOfApiCallPerQuery = -1 // Allowed API calls  per query if historical data is enabled. That retrict data on graph. -1 for unlimited
+    static readonly ConcurrentApiCallsPerQuery = 2 // Concurrent API calls per query if historical data is enabled. -1 for unlimited
 }

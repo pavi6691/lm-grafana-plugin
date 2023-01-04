@@ -56,6 +56,9 @@ type HostDataSource struct {
 	Items []HostDataSourceItems `json:"items,omitempty"`
 }
 
+type AutoCompleteHosts struct {
+	Items []string `json:"items,omitempty"`
+}
 type QueryModel struct {
 	TypeSelected                  string             `json:"typeSelected"`
 	GroupSelected                 LabelIntValue      `json:"groupSelected"`
