@@ -39,10 +39,12 @@ type MultiInstanceData struct {
 }
 
 type MultiInstanceRawData struct {
-	Data   MultiInstanceData `json:"data,omitempty"`
-	Error  string            `json:"errmsg,omitempty"`
-	Status int               `json:"status,omitempty"`
-	JobId  int
+	Data     MultiInstanceData `json:"data,omitempty"`
+	Error    string            `json:"errmsg,omitempty"`
+	Status   int               `json:"status,omitempty"`
+	JobId    int
+	FromTime int64
+	ToTime   int64
 }
 
 type HostDataSourceItems struct {
@@ -74,6 +76,7 @@ type QueryModel struct {
 	EnableHistoricalData          bool               `json:"enabledHistoricalData"`
 	EnableStrategicApiCallFeature bool               `json:"enableStrategicApiCallFeature"`
 	EnableHostVariableFeature     bool               `json:"enabledHostVariableFeature"`
+	EnableApiCallThrottler        bool               `json:"enableApiCallThrottler"`
 }
 
 type Error struct {
@@ -117,6 +120,7 @@ type MetaData struct {
 	TimeRangeForApiCall []PendingTimeRange
 	MatchedInstances    bool
 	InstanceSelectedMap map[string]int
+	PendingApiCalls     int
 }
 
 type ApiCallsTracker struct {

@@ -31,6 +31,7 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     query.enableStrategicApiCallFeature = Constants.EnableStrategicApiCallFeature
     query.enabledHistoricalData = Constants.EnableHistoricalData
     query.enabledRegexFeature = Constants.EnableRegexFeature
+    query.enableApiCallThrottler = Constants.EnableApiCallThrottler
     if(!Constants.EnableHostVariableFeature || getTemplateSrv().getVariables().length === 0 || query.enableHostVariable !== true) {
       return query;
     }

@@ -23,6 +23,7 @@ export interface MyQuery extends DataQuery {
   enabledHostVariableFeature: boolean
   enabledHistoricalData: boolean
   enableStrategicApiCallFeature: boolean
+  enableApiCallThrottler: boolean
 }
 export const defaultQuery: Partial<MyQuery> = {
   withStreaming: false,

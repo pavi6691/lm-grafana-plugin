@@ -7,11 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/cache"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
-	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
@@ -76,44 +73,6 @@ func initiateNewDataFrame(instanceName string, dataPointSelected []models.LabelI
 		)
 	}
 	return frame
-}
-
-func GetTimeRanges(from int64, to int64, collectInterval int64, metaData models.MetaData, logger log.Logger) []models.PendingTimeRange {
-	pendingTimeRange := []models.PendingTimeRange{}
-	recordsToAppend := ((to - from) / 60) / (collectInterval / 60)
-	logger.Debug("RecordsToAppend => ", recordsToAppend)
-	for i := recordsToAppend; i > constants.MaxNumberOfRecordsPerApiCall; i = i - constants.MaxNumberOfRecordsPerApiCall {
-		to := from + (constants.MaxNumberOfRecordsPerApiCall * collectInterval)
-		if time.Now().Unix() < to {
-			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: time.Now().Unix()})
-			recordsToAppend = 0
-			break
-		} else {
-			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: to})
-		}
-		recordsToAppend = recordsToAppend - constants.MaxNumberOfRecordsPerApiCall
-		from = to + 1
-	}
-	if recordsToAppend > 0 {
-		if metaData.IsForLastXTime {
-			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: to})
-		} else {
-			pendingTimeRange = append(pendingTimeRange, models.PendingTimeRange{From: from, To: from + (recordsToAppend * collectInterval)})
-		}
-	}
-	return pendingTimeRange
-}
-
-/*
-Returns seconds to wait before making API call for new data. is based on ds collect interval time and last time when data is recieved.
-*/
-func CheckToWait(metaData models.MetaData, query backend.DataQuery, queryModel models.QueryModel) int64 {
-	secondsAfterLastData := (query.TimeRange.To.Unix() - cache.GetLastestRawDataEntryTimestamp(metaData))
-	secondsBeforeFirstData := cache.GetFirstRawDataEntryTimestamp(metaData) - query.TimeRange.From.Unix()
-	if secondsAfterLastData < queryModel.CollectInterval && secondsBeforeFirstData < queryModel.CollectInterval {
-		return queryModel.CollectInterval - secondsAfterLastData
-	}
-	return 0
 }
 
 //nolint:cyclop
