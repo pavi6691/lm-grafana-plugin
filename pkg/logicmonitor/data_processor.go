@@ -56,13 +56,13 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 		response, prependTimeRangeForApiCall, appendTimeRangeForApiCall, metaData = cache.GetTimeRanges(query, queryModel, metaData, pluginContext,
 			response, logger)
 	}
-	// if response.Error != nil {
-	// 	return response
-	// }
 
 	// Validate with Single call first for any Errors
 	finalData, response, queryModel = validateWithFirstCall(finalData, queryModel, metaData, authSettings, pluginSettings, pluginContext,
 		response, prependTimeRangeForApiCall, appendTimeRangeForApiCall, false, logger)
+	if response.Error != nil {
+		return response
+	}
 
 	/*
 		Get earlier data than what is already in the cache
@@ -133,8 +133,8 @@ func initApiCallsAndAccomulateResponse(timeRangeForApiCall []models.PendingTimeR
 	logger log.Logger) map[int]*models.MultiInstanceRawData {
 	if len(timeRangeForApiCall) > 0 {
 		dataLenIdx := len(rawDataMap)
-		jobs := make(chan Job, len(timeRangeForApiCall))
-		results := make(chan *models.MultiInstanceRawData, len(timeRangeForApiCall))
+		jobs := make(chan Job, len(timeRangeForApiCall)-1)
+		results := make(chan *models.MultiInstanceRawData, len(timeRangeForApiCall)-1)
 		for i := 1; i < len(timeRangeForApiCall); i++ {
 			go callDataAPI(jobs, results, &queryModel, pluginSettings, authSettings, metaData, logger)
 		}
@@ -143,7 +143,7 @@ func initApiCallsAndAccomulateResponse(timeRangeForApiCall []models.PendingTimeR
 			dataLenIdx++
 		}
 		close(jobs)
-		for i := len(timeRangeForApiCall); i > 1; i-- {
+		for i := 1; i < len(timeRangeForApiCall); i++ {
 			result := <-results
 			rawDataMap[result.JobId] = result
 		}
