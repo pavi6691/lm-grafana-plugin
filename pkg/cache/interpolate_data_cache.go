@@ -13,7 +13,6 @@ import (
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	utils "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/utils"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
 
 // Stores mapping of host data source id against ket host and datasource. caching this mapping avoids multiple API call for when host variable is changed
@@ -30,8 +29,7 @@ func add(key string, value interface{}) {
 	hostDsAndHdsMapping.SetWithTTL(key, value, time.Duration(constants.InterpolateDataCacheTTLMinutes*60)*time.Second)
 }
 
-func InterpolateHostDataSourceDetails(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings,
-	logger log.Logger, pluginContext backend.PluginContext, queryModel models.QueryModel,
+func InterpolateHostDataSourceDetails(santabaClient httpclient.SantabaClient, queryModel models.QueryModel,
 	response backend.DataResponse) (models.QueryModel, backend.DataResponse) {
 	hdsSelected, present := get(fmt.Sprintf("%s-%d", queryModel.HostSelected.Value, queryModel.DataSourceSelected.Ds))
 	if present {
@@ -40,19 +38,19 @@ func InterpolateHostDataSourceDetails(pluginSettings *models.PluginSettings, aut
 	}
 	requestURL := utils.BuildURLReplacingQueryParams(constants.HostDataSourceReq, &queryModel, 0, 0, models.MetaData{})
 	if requestURL == "" {
-		logger.Error(constants.URLConfigurationErrMsg)
+		santabaClient.Logger.Error(constants.URLConfigurationErrMsg)
 		return queryModel, response
 	}
 	var respByte []byte
-	respByte, response.Error = httpclient.Get(pluginSettings, authSettings, requestURL, constants.HostDataSourceReq, logger)
+	respByte, response.Error = santabaClient.Get(requestURL, constants.HostDataSourceReq)
 	if response.Error != nil {
-		logger.Error("Error from server => ", response.Error)
+		santabaClient.Logger.Error("Error from server => ", response.Error)
 		return queryModel, response
 	}
 	var hdsReponse models.HostDataSource
 	response.Error = json.Unmarshal(respByte, &hdsReponse)
 	if response.Error != nil {
-		logger.Error(constants.ErrorUnmarshallingErrorData+"hdsReponse =>", response.Error.Error())
+		santabaClient.Logger.Error(constants.ErrorUnmarshallingErrorData+"hdsReponse =>", response.Error.Error())
 		return queryModel, response
 	}
 	if hdsReponse.Total == 1 {
@@ -68,8 +66,7 @@ func InterpolateHostDataSourceDetails(pluginSettings *models.PluginSettings, aut
 	return queryModel, response
 }
 
-func InterpolateHostDetails(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings,
-	logger log.Logger, pluginContext backend.PluginContext, queryModel models.QueryModel,
+func InterpolateHostDetails(santabaClient httpclient.SantabaClient, queryModel models.QueryModel,
 	response backend.DataResponse) (models.QueryModel, backend.DataResponse) {
 	hostId, present := get(queryModel.HostSelected.Label)
 	if present {
@@ -78,20 +75,20 @@ func InterpolateHostDetails(pluginSettings *models.PluginSettings, authSettings 
 	}
 	requestURL := utils.BuildURLReplacingQueryParams(constants.AutoCompleteHostReq, &queryModel, 0, 0, models.MetaData{})
 	if requestURL == "" {
-		logger.Error(constants.URLConfigurationErrMsg)
+		santabaClient.Logger.Error(constants.URLConfigurationErrMsg)
 		return queryModel, response
 	}
 	var respByte []byte
-	logger.Warn("Calling to interpolate host", requestURL)
-	respByte, response.Error = httpclient.Get(pluginSettings, authSettings, requestURL, constants.AutoCompleteHostReq, logger)
+	santabaClient.Logger.Warn("Calling to interpolate host", requestURL)
+	respByte, response.Error = santabaClient.Get(requestURL, constants.AutoCompleteHostReq)
 	if response.Error != nil {
-		logger.Error("Error from server => ", response.Error)
+		santabaClient.Logger.Error("Error from server => ", response.Error)
 		return queryModel, response
 	}
 	var autoCompleteHosts models.AutoCompleteHosts
 	response.Error = json.Unmarshal(respByte, &autoCompleteHosts)
 	if response.Error != nil {
-		logger.Error(constants.ErrorUnmarshallingErrorData+"hdsReponse =>", response.Error.Error())
+		santabaClient.Logger.Error(constants.ErrorUnmarshallingErrorData+"hdsReponse =>", response.Error.Error())
 		return queryModel, response
 	}
 	if len(autoCompleteHosts.Items) > 0 {

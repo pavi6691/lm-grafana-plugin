@@ -1,8 +1,8 @@
 package logicmonitor
 
 import (
-	"context"
 	"encoding/json"
+	httpclient "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/httpclient"
 	"strconv"
 	"time"
 
@@ -11,11 +11,10 @@ import (
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
 	utils "github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/utils"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
 
-func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSettings *models.AuthSettings,
-	logger log.Logger, pluginContext backend.PluginContext, query backend.DataQuery) backend.DataResponse {
+func Query(santabaClient httpclient.SantabaClient,
+	pluginContext backend.PluginContext, query backend.DataQuery) backend.DataResponse {
 	response := backend.DataResponse{} //nolint:exhaustivestruct
 
 	// Unmarshal the JSON into our queryModel.
@@ -24,21 +23,21 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 
 	response.Error = json.Unmarshal(query.JSON, &queryModel)
 	if response.Error != nil || queryModel.DataPointSelected == nil {
-		logger.Error(constants.ErrorUnmarshallingErrorData+"queryModel =>", response.Error)
+		santabaClient.Logger.Error(constants.ErrorUnmarshallingErrorData+"queryModel =>", response.Error)
 		return response
 	}
-	logger.Debug("queryModel => ", queryModel)
+	santabaClient.Logger.Debug("queryModel => ", queryModel)
 	// interpolatedQuery, when variable is added on dashboard, one variable on dashboard is hadled here. its considered to be host
 	if queryModel.EnableHostVariableFeature {
-		logger.Debug("queryModel.interpolatedQuery? => ", queryModel.IsQueryInterpolated)
+		santabaClient.Logger.Debug("queryModel.interpolatedQuery? => ", queryModel.IsQueryInterpolated)
 		if queryModel.IsQueryInterpolated {
-			queryModel, response = cache.InterpolateHostDataSourceDetails(pluginSettings, authSettings, logger, pluginContext, queryModel, response)
+			queryModel, response = cache.InterpolateHostDataSourceDetails(santabaClient, queryModel, response)
 		}
 	}
 
 	metaData.EditMode = checkIfCallFromQueryEditor(&queryModel)
-	metaData.Id, metaData.IsForLastXTime = getUniqueID(&queryModel, &query, pluginSettings, metaData)
-	metaData.QueryId = getQueryId(&queryModel, &query, pluginSettings)
+	metaData.Id, metaData.IsForLastXTime = getUniqueID(&queryModel, &query, santabaClient.PluginSettings, metaData)
+	metaData.QueryId = getQueryId(&queryModel, &query, santabaClient.PluginSettings)
 	if queryModel.EnableHistoricalData {
 		if queryModel.EnableStrategicApiCallFeature {
 			metaData.CacheTTLInSeconds = query.TimeRange.To.Unix() - query.TimeRange.From.Unix()
@@ -48,13 +47,13 @@ func Query(ctx context.Context, pluginSettings *models.PluginSettings, authSetti
 	} else {
 		metaData.CacheTTLInSeconds = 60
 	}
-	logger.Debug("metaData.CacheTTLInSeconds = ", metaData.CacheTTLInSeconds)
+	santabaClient.Logger.Debug("metaData.CacheTTLInSeconds = ", metaData.CacheTTLInSeconds)
 	metaData.InstanceSelectedMap = make(map[string]int)
 	for i, v := range queryModel.InstanceSelected {
 		metaData.InstanceSelectedMap[v.Label] = i
 	}
-	logger.Debug("metaData ==> ", metaData)
-	return GetData(query, queryModel, metaData, authSettings, pluginSettings, pluginContext, logger)
+	santabaClient.Logger.Debug("metaData ==> ", metaData)
+	return GetData(query, queryModel, metaData, santabaClient, pluginContext)
 	// go GetData(query, queryModel, metaData, authSettings, pluginSettings, pluginContext, logger)
 	// finalData := make(map[int]*models.MultiInstanceRawData)
 	// if data, ok := cache.GetData(metaData); ok {

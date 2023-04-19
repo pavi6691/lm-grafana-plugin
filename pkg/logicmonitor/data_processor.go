@@ -37,8 +37,8 @@ type Job struct {
 	TimeTo   int64
 }
 
-func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData models.MetaData, authSettings *models.AuthSettings,
-	pluginSettings *models.PluginSettings, pluginContext backend.PluginContext, logger log.Logger) backend.DataResponse {
+func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData models.MetaData, santabaClient httpclient.SantabaClient,
+	pluginContext backend.PluginContext) backend.DataResponse {
 
 	response := backend.DataResponse{}
 	finalData := make(map[int]*models.MultiInstanceRawData)
@@ -54,12 +54,12 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 	_, entryPresentInCache := cache.GetData(metaData)
 	if queryModel.EnableStrategicApiCallFeature || !entryPresentInCache {
 		response, prependTimeRangeForApiCall, appendTimeRangeForApiCall, metaData = cache.GetTimeRanges(query, queryModel, metaData, pluginContext,
-			response, logger)
+			response, santabaClient.Logger)
 	}
 
 	// Validate with Single call first for any Errors
-	finalData, response, queryModel = validateWithFirstCall(finalData, queryModel, metaData, authSettings, pluginSettings, pluginContext,
-		response, prependTimeRangeForApiCall, appendTimeRangeForApiCall, false, logger)
+	finalData, response, queryModel = validateWithFirstCall(finalData, queryModel, metaData, santabaClient, pluginContext,
+		response, prependTimeRangeForApiCall, appendTimeRangeForApiCall, false, santabaClient.Logger)
 	if response.Error != nil {
 		return response
 	}
@@ -67,8 +67,8 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 	/*
 		Get earlier data than what is already in the cache
 	*/
-	finalData = initApiCallsAndAccomulateResponse(prependTimeRangeForApiCall, finalData, queryModel, metaData, authSettings, pluginSettings, logger)
-	logger.Debug("Prepend Nr Of Entries", getNrOfEntries(finalData, 0))
+	finalData = initApiCallsAndAccomulateResponse(prependTimeRangeForApiCall, finalData, queryModel, metaData, santabaClient)
+	santabaClient.Logger.Debug("Prepend Nr Of Entries", getNrOfEntries(finalData, 0))
 	/*
 		Get data from cache
 	*/
@@ -77,44 +77,44 @@ func GetData(query backend.DataQuery, queryModel models.QueryModel, metaData mod
 		if cachedData, ok = data.(*models.MultiInstanceRawData); ok {
 			finalData[len(finalData)] = cachedData
 		}
-		logger.Debug("Cached Number of entries", getNrForSingleEntry(cachedData.Data.Instances))
+		santabaClient.Logger.Debug("Cached Number of entries", getNrForSingleEntry(cachedData.Data.Instances))
 	}
 
 	/*
 		Get latest data. expected more data than in cache
 	*/
 	lenTillCached := len(finalData)
-	finalData = initApiCallsAndAccomulateResponse(appendTimeRangeForApiCall, finalData, queryModel, metaData, authSettings, pluginSettings, logger)
-	logger.Debug("Append Number of entries", getNrOfEntries(finalData, lenTillCached))
-	logger.Debug("Total Number of entries", getNrOfEntries(finalData, 0))
+	finalData = initApiCallsAndAccomulateResponse(appendTimeRangeForApiCall, finalData, queryModel, metaData, santabaClient)
+	santabaClient.Logger.Debug("Append Number of entries", getNrOfEntries(finalData, lenTillCached))
+	santabaClient.Logger.Debug("Total Number of entries", getNrOfEntries(finalData, 0))
 	if len(finalData) == 0 {
 		if response.Error == nil {
 			response.Error = errors.New(constants.NoDataFromLM)
 		}
 	} else {
-		response = processFinalData(queryModel, metaData, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(), finalData, response, logger)
-		logger.Debug("size of data in bytes", cache.GetRealSize(metaData))
+		response = processFinalData(queryModel, metaData, query.TimeRange.From.Unix(), query.TimeRange.To.Unix(), finalData, response, santabaClient.Logger)
+		santabaClient.Logger.Debug("size of data in bytes", cache.GetRealSize(metaData))
 	}
 
 	return response
 }
 
 func validateWithFirstCall(finalData map[int]*models.MultiInstanceRawData, queryModel models.QueryModel, metaData models.MetaData,
-	authSettings *models.AuthSettings, pluginSettings *models.PluginSettings, pluginContext backend.PluginContext,
+	santabaClient httpclient.SantabaClient, pluginContext backend.PluginContext,
 	response backend.DataResponse, prependTimeRangeForApiCall []models.PendingTimeRange, appendTimeRangeForApiCall []models.PendingTimeRange,
 	seondCall bool, logger log.Logger) (map[int]*models.MultiInstanceRawData, backend.DataResponse, models.QueryModel) {
 	if len(prependTimeRangeForApiCall) > 0 {
-		finalData[0] = call(0, prependTimeRangeForApiCall[0].From, prependTimeRangeForApiCall[0].To, pluginSettings, authSettings, &queryModel, metaData, logger)
+		finalData[0] = call(0, prependTimeRangeForApiCall[0].From, prependTimeRangeForApiCall[0].To, santabaClient, &queryModel, metaData)
 	} else if len(appendTimeRangeForApiCall) > 0 {
-		finalData[0] = call(0, appendTimeRangeForApiCall[0].From, appendTimeRangeForApiCall[0].To, pluginSettings, authSettings, &queryModel, metaData, logger)
+		finalData[0] = call(0, appendTimeRangeForApiCall[0].From, appendTimeRangeForApiCall[0].To, santabaClient, &queryModel, metaData)
 	}
 	if len(finalData) > 0 && finalData[0].Error != "" && finalData[0].Error != "OK" {
 		deviceMatched, _ := regexp.MatchString("Device<(.*?)> is not found", finalData[0].Error)
 		deviceDataSourceMatched, _ := regexp.MatchString("DeviceDataSource<(.*?)> is not found", finalData[0].Error)
 		if (deviceMatched || deviceDataSourceMatched) && !seondCall {
-			queryModel, response = cache.InterpolateHostDetails(pluginSettings, authSettings, logger, pluginContext, queryModel, response)
-			queryModel, response = cache.InterpolateHostDataSourceDetails(pluginSettings, authSettings, logger, pluginContext, queryModel, response)
-			validateWithFirstCall(finalData, queryModel, metaData, authSettings, pluginSettings, pluginContext,
+			queryModel, response = cache.InterpolateHostDetails(santabaClient, queryModel, response)
+			queryModel, response = cache.InterpolateHostDataSourceDetails(santabaClient, queryModel, response)
+			validateWithFirstCall(finalData, queryModel, metaData, santabaClient, pluginContext,
 				response, prependTimeRangeForApiCall, appendTimeRangeForApiCall, true, logger)
 
 		} else {
@@ -129,14 +129,13 @@ func validateWithFirstCall(finalData map[int]*models.MultiInstanceRawData, query
 Initiate goroutines to call API for each time range caclulated
 */
 func initApiCallsAndAccomulateResponse(timeRangeForApiCall []models.PendingTimeRange, rawDataMap map[int]*models.MultiInstanceRawData,
-	queryModel models.QueryModel, metaData models.MetaData, authSettings *models.AuthSettings, pluginSettings *models.PluginSettings,
-	logger log.Logger) map[int]*models.MultiInstanceRawData {
+	queryModel models.QueryModel, metaData models.MetaData, santabaClient httpclient.SantabaClient) map[int]*models.MultiInstanceRawData {
 	if len(timeRangeForApiCall) > 0 {
 		dataLenIdx := len(rawDataMap)
 		jobs := make(chan Job, len(timeRangeForApiCall)-1)
 		results := make(chan *models.MultiInstanceRawData, len(timeRangeForApiCall)-1)
 		for i := 1; i < len(timeRangeForApiCall); i++ {
-			go callDataAPI(jobs, results, &queryModel, pluginSettings, authSettings, metaData, logger)
+			go callDataAPI(jobs, results, &queryModel, santabaClient, metaData)
 		}
 		for i := 1; i < len(timeRangeForApiCall); i++ {
 			jobs <- Job{JobId: dataLenIdx, TimeFrom: timeRangeForApiCall[i].From, TimeTo: timeRangeForApiCall[i].To}
@@ -153,31 +152,31 @@ func initApiCallsAndAccomulateResponse(timeRangeForApiCall []models.PendingTimeR
 }
 
 // Gets fresh data by calling rest API
-func callDataAPI(jobs chan Job, results chan<- *models.MultiInstanceRawData, queryModel *models.QueryModel, pluginSettings *models.PluginSettings,
-	authSettings *models.AuthSettings, metaData models.MetaData, logger log.Logger) {
+func callDataAPI(jobs chan Job, results chan<- *models.MultiInstanceRawData, queryModel *models.QueryModel, santabaClient httpclient.SantabaClient,
+	metaData models.MetaData) {
 	for job := range jobs {
-		results <- call(job.JobId, job.TimeFrom, job.TimeTo, pluginSettings, authSettings, queryModel, metaData, logger)
+		results <- call(job.JobId, job.TimeFrom, job.TimeTo, santabaClient, queryModel, metaData)
 	}
 }
 
-func call(jobId int, fromTime int64, toTime int64, pluginSettings *models.PluginSettings, authSettings *models.AuthSettings,
-	queryModel *models.QueryModel, metaData models.MetaData, logger log.Logger) *models.MultiInstanceRawData {
+func call(jobId int, fromTime int64, toTime int64, santabaClient httpclient.SantabaClient,
+	queryModel *models.QueryModel, metaData models.MetaData) *models.MultiInstanceRawData {
 	var rawData models.MultiInstanceRawData
 	rawData.JobId = jobId
 	rawData.FromTime = fromTime
 	rawData.ToTime = toTime
 	fullPath := utils.BuildURLReplacingQueryParams(constants.RawDataMultiInstanceReq, queryModel, rawData.FromTime, rawData.ToTime, metaData)
-	logger.Debug("Calling API  => ", pluginSettings.Path, fullPath)
+	santabaClient.Logger.Debug("Calling API  => ", santabaClient.PluginSettings.Path, fullPath)
 	//todo remove the loggers
-	respByte, err := httpclient.Get(pluginSettings, authSettings, fullPath, constants.RawDataMultiInstanceReq, logger)
+	respByte, err := santabaClient.Get(fullPath, constants.RawDataMultiInstanceReq)
 	if err != nil {
 		rawData.Error = err.Error()
-		logger.Error("Error from server => ", err)
+		santabaClient.Logger.Error("Error from server => ", err)
 	} else {
 		err = json.Unmarshal(respByte, &rawData)
 		if err != nil {
 			rawData.Error = err.Error()
-			logger.Error(constants.ErrorUnmarshallingErrorData+"raw-data => ", err)
+			santabaClient.Logger.Error(constants.ErrorUnmarshallingErrorData+"raw-data => ", err)
 		}
 	}
 	return &rawData
@@ -250,7 +249,7 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 			}
 		}
 	}
-	// Check for errors, add franmes to response and store data in cache
+	// Check for errors, add frames to response and store data in cache
 	if !metaData.MatchedInstances && len(dataFrameMap) == 0 && response.Error == nil {
 		response.Error = errors.New(constants.InstancesNotMatchingWithHosts)
 	} else {

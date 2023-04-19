@@ -3,11 +3,11 @@ package httpclient
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"crypto/tls"
 	b64 "encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
@@ -16,22 +16,24 @@ import (
 
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/constants"
 	"github.com/grafana/grafana-logicmonitor-datasource-backend/pkg/models"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
 
-func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSettings, requestURL string, req string, logger log.Logger) ([]byte, error) { //nolint:lll
-	url := fmt.Sprintf(constants.RootURL, pluginSettings.Path) + requestURL
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: pluginSettings.SkipTLSVarify,
-			},
-		},
-	}
+type SantabaResource interface {
+	Get(requestURL string, request string) ([]byte, error)
+}
 
+type SantabaClient struct {
+	PluginSettings *models.PluginSettings
+	AuthSettings   *models.AuthSettings
+	Client         *http.Client
+	Logger         log.Logger
+}
+
+func (santabaClient SantabaClient) Get(requestURL string, request string) ([]byte, error) { //nolint:lll
+	url := fmt.Sprintf(constants.RootURL, santabaClient.PluginSettings.Path) + requestURL
 	httpRequest, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		logger.Error(constants.ErrorCreatingHttpRequest, err)
+		santabaClient.Logger.Error(constants.ErrorCreatingHttpRequest, err)
 
 		return nil, err //nolint:wrapcheck
 	}
@@ -39,42 +41,42 @@ func Get(pluginSettings *models.PluginSettings, authSettings *models.AuthSetting
 	resourcePath := strings.ReplaceAll(httpRequest.URL.Path, constants.SantabaRestPath, "")
 
 	// todo
-	logger.Debug("The resource path is ", resourcePath)
-	logger.Debug("The httpRequest.URL.Path is ", httpRequest.URL.Path)
-	logger.Debug("The full path is ", requestURL)
+	santabaClient.Logger.Debug("The resource path is ", resourcePath)
+	santabaClient.Logger.Debug("The httpRequest.URL.Path is ", httpRequest.URL.Path)
+	santabaClient.Logger.Debug("The full path is ", requestURL)
 
-	if pluginSettings.IsLMV1Enabled {
-		httpRequest.Header.Add(constants.Authorization, getLMv1(pluginSettings.AccessID, authSettings.AccessKey, resourcePath)) //nolint:lll
+	if santabaClient.PluginSettings.IsLMV1Enabled {
+		httpRequest.Header.Add(constants.Authorization, getLMv1(santabaClient.PluginSettings.AccessID, santabaClient.AuthSettings.AccessKey, resourcePath)) //nolint:lll
 	}
 
-	if pluginSettings.IsBearerEnabled {
-		httpRequest.Header.Add(constants.Authorization, buildBearerToken(authSettings))
+	if santabaClient.PluginSettings.IsBearerEnabled {
+		httpRequest.Header.Add(constants.Authorization, buildBearerToken(santabaClient.AuthSettings))
 	}
 
-	httpRequest.Header.Add(constants.UserAgent, buildGrafanaUserAgent(pluginSettings))
+	httpRequest.Header.Add(constants.UserAgent, buildGrafanaUserAgent(santabaClient.PluginSettings))
 
-	if resourcePath == constants.AutoCompleteNamesPath || req == constants.HostDataSourceReq {
+	if resourcePath == constants.AutoCompleteNamesPath || request == constants.HostDataSourceReq {
 		httpRequest.Header.Add(constants.XVersion, constants.XVersionValue3)
 	}
 
 	//	//todo remove this
 	reqDump, err := httputil.DumpRequest(httpRequest, true)
 	if err != nil {
-		logger.Error(err.Error())
+		santabaClient.Logger.Error(err.Error())
 		return nil, err
 	}
 
-	logger.Debug("Hitting HTTP request with headers => ", string(reqDump), err)
+	santabaClient.Logger.Debug("Hitting HTTP request with headers => ", string(reqDump), err)
 
-	newResp, err := client.Do(httpRequest)
+	newResp, err := santabaClient.Client.Do(httpRequest)
 	var respByte []byte
 	if err != nil {
-		logger.Error(constants.HttpClientErrorMakingRequest, err)
+		santabaClient.Logger.Error(constants.HttpClientErrorMakingRequest, err)
 	} else {
 		defer newResp.Body.Close()
 		respByte, err = ioutil.ReadAll(newResp.Body)
 		if err != nil {
-			logger.Error(constants.ErrorReadingResponseBody, err)
+			santabaClient.Logger.Error(constants.ErrorReadingResponseBody, err)
 			return nil, errors.New(constants.ErrorReadingResponseBody)
 		}
 	}

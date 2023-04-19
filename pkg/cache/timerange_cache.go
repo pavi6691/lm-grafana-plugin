@@ -120,7 +120,7 @@ func getTimeRanges(timeRangeStart int64, timeRangeEnd int64, queryModel models.Q
 		metaData.PendingApiCalls = (int(currentApiCalls) + apisCallsSofar) - constants.MaxApiCallsRateLimit
 		currentApiCalls = constants.MaxApiCallsRateLimit - int64(apisCallsSofar)
 	}
-	logger.Info("Available nr of Api Calls", currentApiCalls)
+	logger.Info("Available nr of Api Calls", constants.MaxApiCallsRateLimit-int64(apisCallsSofar))
 	logger.Info("Cache size (same as number of panels)", GetCount())
 	pendingTimeRange = make([]models.PendingTimeRange, currentApiCalls)
 	var call int64

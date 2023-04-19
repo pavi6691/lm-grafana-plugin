@@ -15,10 +15,10 @@ export class Constants {
     dashboard'
 
 
-    static readonly EnableBearerToken = true
+    static readonly EnableBearerToken = false
     static readonly EnableAutocomplete = true
 
-    static readonly EnableRegexFeature = true // Alows user to make instance selections on regex
+    static readonly EnableRegexFeature = false // Alows user to make instance selections on regex
     static readonly EnableHostVariableFeature = true // Allow host variable. need to configure manually on variable section (Ex- Device1 : 123, Device2 : 321)
     static readonly EnableHistoricalData = true // Get older data for more than 500 records
 
@@ -26,5 +26,5 @@ export class Constants {
     static readonly EnableStrategicApiCallFeature = true
     static readonly EnableApiCallThrottler = true // Handle API calls on throttler strategy in santaba
     static readonly MaxNumberOfApiCallPerQuery = -1 // Allowed API calls  per query if historical data is enabled. That retrict data on graph. -1 for unlimited
-    static readonly ConcurrentApiCallsPerQuery = 2 // Concurrent API calls per query if historical data is enabled. -1 for unlimited
+    static readonly ConcurrentApiCallsPerQuery = -1 // Concurrent API calls per query if historical data is enabled. -1 for unlimited
 }

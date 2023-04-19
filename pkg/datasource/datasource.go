@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -23,10 +24,9 @@ var (
 )
 
 type LogicmonitorDataSource struct {
-	dsInfo         *backend.DataSourceInstanceSettings
-	Logger         log.Logger
-	PluginSettings *models.PluginSettings
-	AuthSettings   *models.AuthSettings
+	dsInfo        *backend.DataSourceInstanceSettings
+	Logger        log.Logger
+	santabaClient httpclient.SantabaClient
 }
 
 func LogicmonitorBackendDataSource(dsSettings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
@@ -43,12 +43,21 @@ func LogicmonitorBackendDataSource(dsSettings backend.DataSourceInstanceSettings
 	}
 
 	return &LogicmonitorDataSource{
-		dsInfo:         &dsSettings,
-		Logger:         logger,
-		PluginSettings: &pluginSettings,
-		AuthSettings: &models.AuthSettings{
-			AccessKey:   dsSettings.DecryptedSecureJSONData[constants.AccessKey],
-			BearerToken: dsSettings.DecryptedSecureJSONData[constants.BearerToken],
+		dsInfo: &dsSettings,
+		santabaClient: httpclient.SantabaClient{
+			PluginSettings: &pluginSettings,
+			AuthSettings: &models.AuthSettings{
+				AccessKey:   dsSettings.DecryptedSecureJSONData[constants.AccessKey],
+				BearerToken: dsSettings.DecryptedSecureJSONData[constants.BearerToken],
+			},
+			Logger: logger,
+			Client: &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: pluginSettings.SkipTLSVarify,
+					},
+				},
+			},
 		},
 	}, nil
 }
@@ -70,7 +79,7 @@ func (ds *LogicmonitorDataSource) QueryData(ctx context.Context, req *backend.Qu
 	response := backend.NewQueryDataResponse()
 	// loop over queries and execute them individually.
 	for _, q := range req.Queries {
-		res := logicmonitor.Query(ctx, ds.PluginSettings, ds.AuthSettings, ds.Logger, req.PluginContext, q)
+		res := logicmonitor.Query(ds.santabaClient, req.PluginContext, q)
 
 		// save the response in a hashmap
 		// based on with RefID as identifier
@@ -97,8 +106,7 @@ func (ds *LogicmonitorDataSource) CheckHealth(_ context.Context, req *backend.Ch
 
 		return healthRequest, nil
 	}
-
-	respByte, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, constants.HealthCheckReq, ds.Logger)
+	respByte, err := ds.santabaClient.Get(requestURL, constants.HealthCheckReq)
 	if err != nil {
 		healthRequest.Message = err.Error()
 		healthRequest.Status = backend.HealthStatusError
@@ -129,36 +137,36 @@ func (ds *LogicmonitorDataSource) validatePluginSettings(logger log.Logger) *bac
 	checkHealthResult := &backend.CheckHealthResult{} //nolint:exhaustivestruct
 	checkHealthResult.Status = backend.HealthStatusError
 
-	if ds.PluginSettings.Path == "" {
+	if ds.santabaClient.PluginSettings.Path == "" {
 		checkHealthResult.Message = constants.NoCompanyNameEnteredErrMsg
 		logger.Error(constants.NoCompanyNameEnteredErrMsg)
 
 		return checkHealthResult
 	}
 
-	if !ds.PluginSettings.IsLMV1Enabled && !ds.PluginSettings.IsBearerEnabled {
+	if !ds.santabaClient.PluginSettings.IsLMV1Enabled && !ds.santabaClient.PluginSettings.IsBearerEnabled {
 		checkHealthResult.Message = constants.NoAuthenticationErrMsg
 		logger.Error(constants.NoAuthenticationErrMsg)
 
 		return checkHealthResult
 	}
 
-	if ds.PluginSettings.IsBearerEnabled && ds.AuthSettings.BearerToken == "" {
+	if ds.santabaClient.PluginSettings.IsBearerEnabled && ds.santabaClient.AuthSettings.BearerToken == "" {
 		checkHealthResult.Message = constants.BearerTokenEmptyErrMsg
 		logger.Error(constants.BearerTokenEmptyErrMsg)
 
 		return checkHealthResult
 	}
 
-	if ds.PluginSettings.IsLMV1Enabled {
-		if ds.AuthSettings.AccessKey == "" {
+	if ds.santabaClient.PluginSettings.IsLMV1Enabled {
+		if ds.santabaClient.AuthSettings.AccessKey == "" {
 			checkHealthResult.Message = constants.AccessKeyEmptyErrMsg
 			logger.Error(constants.AccessKeyEmptyErrMsg)
 
 			return checkHealthResult
 		}
 
-		if ds.PluginSettings.AccessID == "" {
+		if ds.santabaClient.PluginSettings.AccessID == "" {
 			checkHealthResult.Message = constants.AccessIDEmptyErrMsg
 			logger.Error(constants.AccessIDEmptyErrMsg)
 
@@ -195,7 +203,7 @@ func (ds *LogicmonitorDataSource) CallResource(ctx context.Context, req *backend
 		})
 	}
 
-	respByte, err := httpclient.Get(ds.PluginSettings, ds.AuthSettings, requestURL, req.Path, ds.Logger)
+	respByte, err := ds.santabaClient.Get(requestURL, req.Path)
 	if err != nil {
 		ds.Logger.Info(" Error from server => ", err)
 
