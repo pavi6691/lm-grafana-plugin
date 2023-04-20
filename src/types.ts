@@ -21,7 +21,6 @@ export interface MyQuery extends DataQuery {
   enableHostVariable: boolean
   enabledRegexFeature: boolean
   enabledHostVariableFeature: boolean
-  enabledHistoricalData: boolean
   enableStrategicApiCallFeature: boolean
   enableApiCallThrottler: boolean
   maxNumberOfApiCallPerQuery: any

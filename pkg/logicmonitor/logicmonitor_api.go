@@ -38,7 +38,7 @@ func Query(santabaClient httpclient.SantabaClient,
 	metaData.EditMode = checkIfCallFromQueryEditor(&queryModel)
 	metaData.Id, metaData.IsForLastXTime = getUniqueID(&queryModel, &query, santabaClient.PluginSettings, metaData)
 	metaData.QueryId = getQueryId(&queryModel, &query, santabaClient.PluginSettings)
-	if queryModel.EnableHistoricalData {
+	if queryModel.MaxNumberOfApiCallPerQuery != 1 {
 		if queryModel.EnableStrategicApiCallFeature {
 			metaData.CacheTTLInSeconds = query.TimeRange.To.Unix() - query.TimeRange.From.Unix()
 		} else {

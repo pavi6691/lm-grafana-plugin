@@ -76,7 +76,6 @@ type QueryModel struct {
 	ValidInstanceRegex            bool               `json:"validInstanceRegex"`
 	IsQueryInterpolated           bool               `json:"isQueryInterpolated"`
 	EnableRegexFeature            bool               `json:"enabledRegexFeature"`
-	EnableHistoricalData          bool               `json:"enabledHistoricalData"`
 	EnableStrategicApiCallFeature bool               `json:"enableStrategicApiCallFeature"`
 	EnableHostVariableFeature     bool               `json:"enabledHostVariableFeature"`
 	EnableApiCallThrottler        bool               `json:"enableApiCallThrottler"`

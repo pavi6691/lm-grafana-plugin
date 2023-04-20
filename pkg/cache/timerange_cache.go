@@ -21,8 +21,7 @@ import (
 var mutex sync.Mutex
 
 // TimeRange of all Api calls made so far
-var startTime = ttlcache.NewCache()
-var endTime = ttlcache.NewCache()
+var timeRangeCache = ttlcache.NewCache()
 
 // Track API calls made so far current minute
 var apiCallsTracker sync.Map
@@ -33,13 +32,18 @@ type ApiCallsTracker struct {
 	TotalNrOfCalls int
 }
 
+type TimeRange struct {
+	startTime int64
+	endTime   int64
+}
+
 func GetTimeRanges(query backend.DataQuery, queryModel models.QueryModel, metaData models.MetaData, pluginContext backend.PluginContext,
 	response backend.DataResponse, logger log.Logger) (backend.DataResponse, []models.PendingTimeRange, []models.PendingTimeRange, models.MetaData) {
 	var prependTimeRangeForApiCall []models.PendingTimeRange
 	var appendTimeRangeForApiCall []models.PendingTimeRange
-	firstRawDataEntryTimestamp := getStartTime(metaData)
-	lastRawDataEntryTimestamp := getEndTime(metaData)
-	waitSec := checkToWait(metaData, query, queryModel)
+	firstRawDataEntryTimestamp := getTimeRange(metaData).startTime
+	lastRawDataEntryTimestamp := getTimeRange(metaData).endTime
+	waitSec := checkToWait(metaData, query, queryModel, logger)
 	currentApiCalls := numberOfApiCalls(firstRawDataEntryTimestamp, query.TimeRange.To.Unix(), queryModel)
 	if (waitSec == 0 || response.Error != nil) && (queryModel.MaxNumberOfApiCallPerQuery < 0 || queryModel.MaxNumberOfApiCallPerQuery > currentApiCalls) {
 		if lastRawDataEntryTimestamp > 0 && queryModel.EnableStrategicApiCallFeature {
@@ -48,12 +52,12 @@ func GetTimeRanges(query backend.DataQuery, queryModel models.QueryModel, metaDa
 			lastRawDataEntryTimestamp = unixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60)
 		}
 		getEearlierData := firstRawDataEntryTimestamp < math.MaxInt64 && firstRawDataEntryTimestamp-query.TimeRange.From.Unix() > queryModel.CollectInterval
-		if queryModel.EnableHistoricalData {
+		if queryModel.MaxNumberOfApiCallPerQuery != 1 {
 			if getEearlierData {
-				prependTimeRangeForApiCall, metaData = getTimeRanges(unixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60),
+				prependTimeRangeForApiCall, metaData = calcTimeRanges(unixTruncateToNearestMinute(query.TimeRange.From.Unix(), 60),
 					firstRawDataEntryTimestamp-1, queryModel, pluginContext, metaData, logger)
 			} else {
-				appendTimeRangeForApiCall, metaData = getTimeRanges(lastRawDataEntryTimestamp, query.TimeRange.To.Unix(),
+				appendTimeRangeForApiCall, metaData = calcTimeRanges(lastRawDataEntryTimestamp, query.TimeRange.To.Unix(),
 					queryModel, pluginContext, metaData, logger)
 			}
 		} else {
@@ -91,7 +95,7 @@ func GetTimeRanges(query backend.DataQuery, queryModel models.QueryModel, metaDa
 	return response, prependTimeRangeForApiCall, appendTimeRangeForApiCall, metaData
 }
 
-func getTimeRanges(timeRangeStart int64, timeRangeEnd int64, queryModel models.QueryModel, pluginContext backend.PluginContext,
+func calcTimeRanges(timeRangeStart int64, timeRangeEnd int64, queryModel models.QueryModel, pluginContext backend.PluginContext,
 	metaData models.MetaData, logger log.Logger) ([]models.PendingTimeRange, models.MetaData) {
 	recordsToAppend := recordsToAppend(timeRangeStart, timeRangeEnd, queryModel)
 	currentApiCalls := numberOfApiCalls(timeRangeStart, timeRangeEnd, queryModel)
@@ -106,13 +110,13 @@ func getTimeRanges(timeRangeStart int64, timeRangeEnd int64, queryModel models.Q
 	logger.Info("")
 	logger.Info("ID", metaData.Id)
 	logger.Debug("Is in EditMode", metaData.EditMode)
-	logger.Debug("First Entry TimeStamp", time.UnixMilli(getStartTime(metaData)*1000))
-	logger.Debug("Last Entry TimeStamp", time.UnixMilli(getEndTime(metaData)*1000))
+	logger.Debug("First Entry TimeStamp", time.UnixMilli(getTimeRange(metaData).startTime*1000))
+	logger.Debug("Last Entry TimeStamp", time.UnixMilli(getTimeRange(metaData).endTime*1000))
 	logger.Debug("RecordsToAppend", recordsToAppend)
 	logger.Info("Required Api Calls", currentApiCalls)
-	pendingApiCalls := numberOfApiCalls(timeRangeStart, getStartTime(metaData), queryModel)
+	pendingApiCalls := numberOfApiCalls(timeRangeStart, getTimeRange(metaData).startTime, queryModel)
 	if pendingApiCalls > 0 {
-		logger.Error(constants.PendingApiCallsMsg, pendingApiCalls)
+		logger.Warn(constants.PendingApiCallsMsg, pendingApiCalls)
 	}
 	apisCallsSofar := GetNrOfApiCalls(pluginContext.DataSourceInstanceSettings.UID).NrOfCalls
 	logger.Debug("Api calls so far this minute", apisCallsSofar)
@@ -158,9 +162,9 @@ func numberOfApiCalls(timeRangeStart int64, timeRangeEnd int64, queryModel model
 /*
 Returns seconds to wait before making API call for new data. is based on ds collect interval time and last time when data is recieved.
 */
-func checkToWait(metaData models.MetaData, query backend.DataQuery, queryModel models.QueryModel) int64 {
-	secondsAfterLastData := (query.TimeRange.To.Unix() - getEndTime(metaData))
-	secondsBeforeFirstData := getStartTime(metaData) - query.TimeRange.From.Unix()
+func checkToWait(metaData models.MetaData, query backend.DataQuery, queryModel models.QueryModel, logger log.Logger) int64 {
+	secondsAfterLastData := (query.TimeRange.To.Unix() - getTimeRange(metaData).endTime)
+	secondsBeforeFirstData := getTimeRange(metaData).startTime - query.TimeRange.From.Unix()
 	if secondsAfterLastData < queryModel.CollectInterval && secondsBeforeFirstData < queryModel.CollectInterval {
 		return queryModel.CollectInterval - secondsAfterLastData
 	}
@@ -168,16 +172,20 @@ func checkToWait(metaData models.MetaData, query backend.DataQuery, queryModel m
 }
 
 // Set First record TimeStamp
-func SetFirstTimeStamp(metaData models.MetaData, time int64) {
-	if time > 0 && getStartTime(metaData) > time {
-		storeStartTime(metaData, time)
+func StoreFirstTimeStamp(metaData models.MetaData, timestamp int64) {
+	if timestamp > 0 && getTimeRange(metaData).startTime > timestamp {
+		timeRange := getTimeRange(metaData)
+		timeRange.startTime = timestamp
+		timeRangeCache.SetWithTTL(metaData.Id, timeRange, time.Duration(metaData.CacheTTLInSeconds+60)*time.Second)
 	}
 }
 
 // Set Last record TimeStamp
-func SetLastTimeStamp(metaData models.MetaData, time int64) {
-	if time > 0 && getEndTime(metaData) < time {
-		storeEndTime(metaData, time)
+func StoreLastTimeStamp(metaData models.MetaData, timestamp int64) {
+	if timestamp > 0 && getTimeRange(metaData).endTime < timestamp {
+		timeRange := getTimeRange(metaData)
+		timeRange.endTime = timestamp
+		timeRangeCache.SetWithTTL(metaData.Id, timeRange, time.Duration(metaData.CacheTTLInSeconds+60)*time.Second)
 	}
 }
 
@@ -215,36 +223,15 @@ func unixTruncateToNearestMinute(inputTime int64, intervalMin int64) int64 {
 	return inputTimeTruncated.Unix()
 }
 
-func storeEndTime(metaData models.MetaData, timeStamp int64) {
-	endTime.SetWithTTL(metaData.Id, timeStamp, time.Duration(metaData.CacheTTLInSeconds+60)*time.Second)
-}
-
-func storeStartTime(metaData models.MetaData, timeStamp int64) {
-	startTime.SetWithTTL(metaData.Id, timeStamp, time.Duration(metaData.CacheTTLInSeconds+60)*time.Second)
-}
-
-func getEndTime(metaData models.MetaData) int64 {
-	if v, ok := endTime.Get(metaData.Id); ok {
-		return v.(int64)
-	} else if v, ok := endTime.Get(metaData.QueryId); ok {
+func getTimeRange(metaData models.MetaData) TimeRange {
+	if v, ok := timeRangeCache.Get(metaData.Id); ok {
+		return v.(TimeRange)
+	} else if v, ok := timeRangeCache.Get(metaData.QueryId); ok {
 		if !metaData.EditMode {
-			endTime.Set(metaData.Id, v.(int64))
-			endTime.Remove(metaData.QueryId)
+			timeRangeCache.Set(metaData.Id, v.(TimeRange))
+			timeRangeCache.Remove(metaData.QueryId)
 		}
-		return v.(int64)
+		return v.(TimeRange)
 	}
-	return 0
-}
-
-func getStartTime(metaData models.MetaData) int64 {
-	if v, ok := startTime.Get(metaData.Id); ok {
-		return v.(int64)
-	} else if v, ok := startTime.Get(metaData.QueryId); ok {
-		if !metaData.EditMode {
-			startTime.Remove(metaData.QueryId)
-			startTime.Set(metaData.Id, v.(int64))
-		}
-		return v.(int64)
-	}
-	return math.MaxInt64
+	return TimeRange{startTime: math.MaxInt64, endTime: 0}
 }

@@ -166,9 +166,9 @@ func call(jobId int, fromTime int64, toTime int64, santabaClient httpclient.Sant
 	rawData.FromTime = fromTime
 	rawData.ToTime = toTime
 	fullPath := utils.BuildURLReplacingQueryParams(constants.RawDataMultiInstanceReq, queryModel, rawData.FromTime, rawData.ToTime, metaData)
-	santabaClient.Logger.Debug("Calling API  => ", santabaClient.PluginSettings.Path, fullPath)
-	//todo remove the loggers
+	santabaClient.Logger.Info("Calling API  => ", santabaClient.PluginSettings.Path, fullPath)
 	respByte, err := santabaClient.Get(fullPath, constants.RawDataMultiInstanceReq)
+	santabaClient.Logger.Info("Calling API Done  => ", santabaClient.PluginSettings.Path, fullPath)
 	if err != nil {
 		rawData.Error = err.Error()
 		santabaClient.Logger.Error("Error from server => ", err)
@@ -194,13 +194,13 @@ func processFinalData(queryModel models.QueryModel, metaData models.MetaData, fr
 			response.Error = errors.New(rawDataMap[k].Error)
 			break
 		}
-		cache.SetFirstTimeStamp(metaData, rawDataMap[k].FromTime)
+		cache.StoreFirstTimeStamp(metaData, rawDataMap[k].FromTime)
 		for instanceName, valueAndTime := range rawDataMap[k].Data.Instances {
 			// Check if instance selected/regex matching
 			shortenInstance, matched := utils.IsInstanceMatched(metaData, &queryModel, rawDataMap[k].Data.DataSourceName, instanceName)
 			if matched {
 				if len(valueAndTime.Time) > 0 {
-					cache.SetLastTimeStamp(metaData, time.UnixMilli(valueAndTime.Time[0]).Unix())
+					cache.StoreLastTimeStamp(metaData, time.UnixMilli(valueAndTime.Time[0]).Unix())
 				}
 				metaData.MatchedInstances = true
 				var frame *data.Frame

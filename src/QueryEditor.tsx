@@ -413,7 +413,7 @@ export class QueryEditor extends PureComponent<Props> {
           {Constants.EnableHostVariableFeature && <div style={{ width: '100%', display: 'flex', marginBottom: 5, alignItems: 'flex-start', columnGap: 5 }}>
             <InlineLabel
               width={'auto'}
-              tooltip={Constants.ToolTipForHostVariableSwitch}>Allow Host Variable</InlineLabel>
+              tooltip={Constants.ToolTipForHostVariableSwitch}>Allow For Host Variable</InlineLabel>
             <InlineSwitch
               width={'auto'}
               default={this.props.query.enableHostVariable}

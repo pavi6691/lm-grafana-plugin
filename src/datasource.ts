@@ -30,7 +30,6 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     // load configurations
     query.enabledHostVariableFeature = Constants.EnableHostVariableFeature
     query.enableStrategicApiCallFeature = Constants.EnableStrategicApiCallFeature
-    query.enabledHistoricalData = Constants.EnableHistoricalData
     query.enabledRegexFeature = Constants.EnableRegexFeature
     query.enableApiCallThrottler = Constants.EnableApiCallThrottler
     query.maxNumberOfApiCallPerQuery = Constants.MaxNumberOfApiCallPerQuery
